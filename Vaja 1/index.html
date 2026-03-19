@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Sensor Recorder</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
+      --border: #2a2a2a; --accent: #00ff88; --accent2: #0088ff;
+      --accent3: #ff4488; --text: #f0f0f0; --muted: #666; --danger: #ff4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 0 0 80px 0; }
+    header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 100; }
+    header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    header h1 span { color: var(--accent); }
+    .status-pill { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .status-pill.recording { border-color: var(--accent); color: var(--accent); }
+    .status-pill.recording .dot { background: var(--accent); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; }
+    .tab { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px 16px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Syne', sans-serif; font-size: 15px; color: var(--text); outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+    .metric-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; }
+    .x { color: var(--accent); } .y { color: var(--accent2); } .z { color: var(--accent3); }
+    .record-btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+    .record-btn.start { background: var(--accent); color: #000; }
+    .record-btn.stop { background: var(--danger); color: #fff; }
+    .record-btn:active { transform: scale(0.98); }
+    .perm-btn { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 16px; }
+    .sample-counter { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
+    .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 16px; position: relative; height: 200px; }
+    .exp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
+    .exp-card:active { border-color: var(--accent); }
+    .exp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .exp-name { font-weight: 700; font-size: 15px; }
+    .exp-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 20px; background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+    .exp-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.8; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2; }
+    .back-btn { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); cursor: pointer; margin-bottom: 16px; background: none; border: none; }
+    .detail-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; height: 220px; }
+    .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .export-btn { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; text-align: center; }
+    .export-btn:active { border-color: var(--accent); }
+    .delete-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; }
+    .section-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .meta-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-bottom: 16px; }
+    .meta-table td { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .meta-table td:first-child { color: var(--muted); width: 45%; }
+    .notice { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+    .notice span { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Sensor<span>Rec</span></h1>
+  <div class="status-pill" id="status-pill">
+    <div class="dot"></div>
+    <span id="status-text">idle</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('record')">Record</div>
+  <div class="tab" onclick="switchTab('experiments')">Experiments</div>
+</div>
+
+<div class="page active" id="page-record">
+  <div class="notice" id="perm-notice">
+    <span>iOS requires permission</span> to access motion sensors.<br>
+    Tap the button below, then allow access when prompted.
+  </div>
+  <button class="perm-btn" id="perm-btn" onclick="requestPermission()">Request Sensor Permission</button>
+
+  <div class="form-group">
+    <label>Experiment name</label>
+    <input type="text" id="exp-name" placeholder="e.g. Typing slow trial 1" />
+  </div>
+  <div class="form-group">
+    <label>Test person</label>
+    <input type="text" id="exp-person" placeholder="e.g. John" />
+  </div>
+  <div class="form-group">
+    <label>Typing speed</label>
+    <select id="exp-speed">
+      <option value="slow">Slow (&lt;40 WPM)</option>
+      <option value="medium">Medium (40–70 WPM)</option>
+      <option value="fast">Fast (&gt;70 WPM)</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Phone position</label>
+    <select id="exp-position">
+      <option value="left-of-keyboard">Left of keyboard</option>
+      <option value="right-of-keyboard">Right of keyboard</option>
+      <option value="under-keyboard">Under keyboard</option>
+      <option value="on-keyboard">On keyboard</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Sampling frequency</label>
+    <select id="exp-freq">
+      <option value="10">10 Hz</option>
+      <option value="20" selected>20 Hz</option>
+      <option value="50">50 Hz</option>
+      <option value="100">100 Hz</option>
+    </select>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Acc X</div><div class="metric-value x" id="live-x">0.000</div></div>
+    <div class="metric"><div class="metric-label">Acc Y</div><div class="metric-value y" id="live-y">0.000</div></div>
+    <div class="metric"><div class="metric-label">Acc Z</div><div class="metric-value z" id="live-z">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr X</div><div class="metric-value x" id="live-gx">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr Y</div><div class="metric-value y" id="live-gy">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr Z</div><div class="metric-value z" id="live-gz">0.000</div></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="live-chart"></canvas></div>
+  <div class="sample-counter" id="sample-counter">0 samples recorded</div>
+  <br>
+  <button class="record-btn start" id="record-btn" onclick="toggleRecording()">Start Recording</button>
+</div>
+
+<div class="page" id="page-experiments">
+  <div id="exp-list"></div>
+  <div id="exp-detail" style="display:none;"></div>
+</div>
+
+<script>
+  let recording = false, samples = [], motionHandler = null;
+  let liveChart = null, liveLabels = [], liveX = [], liveY = [], liveZ = [];
+  const MAX_LIVE = 80;
+  let lastSampleTime = 0, permissionGranted = false;
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`page-${tab}`).classList.add('active');
+    if (tab === 'experiments') renderExperiments();
+  }
+
+  function initLiveChart() {
+    const ctx = document.getElementById('live-chart').getContext('2d');
+    liveChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: liveLabels, datasets: [
+        { label: 'X', data: liveX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+        { label: 'Y', data: liveY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+        { label: 'Z', data: liveZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
+      ]},
+      options: { animation: false, responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
+        scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
+      }
+    });
+  }
+
+  async function requestPermission() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res === 'granted') {
+          permissionGranted = true;
+          document.getElementById('perm-notice').style.display = 'none';
+          document.getElementById('perm-btn').style.display = 'none';
+          startListening();
+        } else {
+          alert('Permission denied. Please allow motion access in Safari settings.');
+        }
+      } catch(e) { alert('Error: ' + e.message); }
+    } else {
+      permissionGranted = true;
+      document.getElementById('perm-notice').style.display = 'none';
+      document.getElementById('perm-btn').style.display = 'none';
+      startListening();
+    }
+  }
+
+  function startListening() {
+    const freqHz = parseInt(document.getElementById('exp-freq').value);
+    const intervalMs = 1000 / freqHz;
+    motionHandler = function(e) {
+      const now = Date.now();
+      if (now - lastSampleTime < intervalMs) return;
+      lastSampleTime = now;
+      const ax = e.acceleration?.x ?? 0;
+      const ay = e.acceleration?.y ?? 0;
+      const az = e.acceleration?.z ?? 0;
+      const gx = e.rotationRate?.alpha ?? 0;
+      const gy = e.rotationRate?.beta ?? 0;
+      const gz = e.rotationRate?.gamma ?? 0;
+      document.getElementById('live-x').textContent = ax.toFixed(3);
+      document.getElementById('live-y').textContent = ay.toFixed(3);
+      document.getElementById('live-z').textContent = az.toFixed(3);
+      document.getElementById('live-gx').textContent = gx.toFixed(3);
+      document.getElementById('live-gy').textContent = gy.toFixed(3);
+      document.getElementById('live-gz').textContent = gz.toFixed(3);
+      liveLabels.push(''); liveX.push(ax); liveY.push(ay); liveZ.push(az);
+      if (liveLabels.length > MAX_LIVE) { liveLabels.shift(); liveX.shift(); liveY.shift(); liveZ.shift(); }
+      liveChart.update();
+      if (recording) {
+        samples.push({ t: now, ax, ay, az, gx, gy, gz });
+        document.getElementById('sample-counter').textContent = `${samples.length} samples recorded`;
+      }
+    };
+    window.addEventListener('devicemotion', motionHandler);
+  }
+
+  function toggleRecording() {
+    if (!permissionGranted) { alert('Please request sensor permission first.'); return; }
+    if (!recording) {
+      const name = document.getElementById('exp-name').value.trim();
+      if (!name) { alert('Please enter an experiment name.'); return; }
+      samples = [];
+      recording = true;
+      document.getElementById('record-btn').textContent = 'Stop Recording';
+      document.getElementById('record-btn').className = 'record-btn stop';
+      document.getElementById('status-pill').className = 'status-pill recording';
+      document.getElementById('status-text').textContent = 'recording';
+      document.getElementById('sample-counter').textContent = '0 samples recorded';
+    } else {
+      recording = false;
+      document.getElementById('record-btn').textContent = 'Start Recording';
+      document.getElementById('record-btn').className = 'record-btn start';
+      document.getElementById('status-pill').className = 'status-pill';
+      document.getElementById('status-text').textContent = 'idle';
+      saveExperiment();
+    }
+  }
+
+  function saveExperiment() {
+    if (samples.length === 0) return;
+    const exp = {
+      id: Date.now(),
+      name: document.getElementById('exp-name').value.trim(),
+      person: document.getElementById('exp-person').value.trim() || 'Unknown',
+      speed: document.getElementById('exp-speed').value,
+      position: document.getElementById('exp-position').value,
+      frequency: document.getElementById('exp-freq').value,
+      device: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      sampleCount: samples.length,
+      samples
+    };
+    const all = getExperiments();
+    all.push(exp);
+    localStorage.setItem('experiments', JSON.stringify(all));
+    alert(`Saved "${exp.name}" with ${samples.length} samples.`);
+  }
+
+  function getExperiments() {
+    try { return JSON.parse(localStorage.getItem('experiments')) || []; } catch { return []; }
+  }
+
+  function renderExperiments() {
+    document.getElementById('exp-detail').style.display = 'none';
+    document.getElementById('exp-list').style.display = 'block';
+    const all = getExperiments();
+    const list = document.getElementById('exp-list');
+    if (all.length === 0) {
+      list.innerHTML = `<div class="empty-state">No experiments yet.<br>Go to Record tab to start.</div>`;
+      return;
+    }
+    list.innerHTML = all.slice().reverse().map(exp => `
+      <div class="exp-card" onclick="showDetail(${exp.id})">
+        <div class="exp-card-header">
+          <div class="exp-name">${exp.name}</div>
+          <div class="exp-badge">${exp.sampleCount} samples</div>
+        </div>
+        <div class="exp-meta">${exp.person} · ${exp.speed} · ${exp.frequency} Hz<br>${new Date(exp.timestamp).toLocaleString()}</div>
+      </div>`).join('');
+  }
+
+  function showDetail(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    document.getElementById('exp-list').style.display = 'none';
+    const detail = document.getElementById('exp-detail');
+    detail.style.display = 'block';
+    detail.innerHTML = `
+      <button class="back-btn" onclick="renderExperiments()">← Back</button>
+      <p class="section-title">Metadata</p>
+      <table class="meta-table">
+        <tr><td>Name</td><td>${exp.name}</td></tr>
+        <tr><td>Person</td><td>${exp.person}</td></tr>
+        <tr><td>Typing speed</td><td>${exp.speed}</td></tr>
+        <tr><td>Position</td><td>${exp.position}</td></tr>
+        <tr><td>Frequency</td><td>${exp.frequency} Hz</td></tr>
+        <tr><td>Samples</td><td>${exp.sampleCount}</td></tr>
+        <tr><td>Recorded</td><td>${new Date(exp.timestamp).toLocaleString()}</td></tr>
+      </table>
+      <p class="section-title">Accelerometer</p>
+      <div class="detail-chart-wrap"><canvas id="detail-chart"></canvas></div>
+      <p class="section-title">Export</p>
+      <div class="export-row">
+        <div class="export-btn" onclick="exportCSV(${id})">Export CSV</div>
+        <div class="export-btn" onclick="exportJSON(${id})">Export JSON</div>
+      </div>
+      <button class="delete-btn" onclick="deleteExperiment(${id})">Delete experiment</button>`;
+    setTimeout(() => {
+      const ctx = document.getElementById('detail-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: exp.samples.map((_,i) => i), datasets: [
+          { label: 'X', data: exp.samples.map(s => s.ax), borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+          { label: 'Y', data: exp.samples.map(s => s.ay), borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+          { label: 'Z', data: exp.samples.map(s => s.az), borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.2 }
+        ]},
+        options: { animation: false, responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
+          scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
+        }
+      });
+    }, 50);
+  }
+
+  function exportCSV(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    const t0 = exp.samples[0].t;
+    let csv = `# Experiment: ${exp.name}\n# Person: ${exp.person}\n# Speed: ${exp.speed}\n# Position: ${exp.position}\n# Frequency: ${exp.frequency} Hz\n# Timestamp: ${exp.timestamp}\n# Device: ${exp.device}\ntime_ms,acc_x,acc_y,acc_z,gyr_x,gyr_y,gyr_z\n`;
+    exp.samples.forEach(s => { csv += `${s.t - t0},${s.ax},${s.ay},${s.az},${s.gx},${s.gy},${s.gz}\n`; });
+    downloadFile(`${exp.name}.csv`, csv, 'text/csv');
+  }
+
+  function exportJSON(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    downloadFile(`${exp.name}.json`, JSON.stringify(exp, null, 2), 'application/json');
+  }
+
+  function downloadFile(filename, content, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = filename;
+    a.click();
+  }
+
+  function deleteExperiment(id) {
+    if (!confirm('Delete this experiment?')) return;
+    localStorage.setItem('experiments', JSON.stringify(getExperiments().filter(e => e.id !== id)));
+    renderExperiments();
+  }
+
+  initLiveChart();
+</script>
+</body>
+</html>
