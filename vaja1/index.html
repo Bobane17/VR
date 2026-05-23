@@ -243,6 +243,55 @@
     pointer-events: none; z-index: 999; white-space: nowrap;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* MQTT */
+  .mqtt-indicator {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Space Mono', monospace; font-size: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px;
+  }
+  .mqtt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); transition: background 0.3s; }
+  .mqtt-dot.connected { background: var(--success); animation: pulse 2s infinite; }
+  .mqtt-dot.connecting { background: var(--fh); animation: pulse 0.6s infinite; }
+
+  .mqtt-log {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem; font-family: 'Space Mono', monospace; font-size: 11px;
+    height: 200px; overflow-y: auto; margin: 1rem 0;
+  }
+  .mqtt-msg { padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
+  .mqtt-msg:last-child { border-bottom: none; }
+  .mqtt-msg .m-time { color: var(--muted); min-width: 70px; }
+  .mqtt-msg .m-topic { color: var(--accent); min-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mqtt-msg .m-payload { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .mqtt-msg.sys { opacity: 0.5; font-style: italic; }
+
+  .pub-row { display: flex; gap: 8px; align-items: flex-end; margin: 0.5rem 0; }
+  .pub-row .form-group { flex: 1; }
+  .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 1rem 0; }
+  .live-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+    text-align: center; transition: border-color 0.3s;
+  }
+  .live-card.updated { border-color: rgba(232,200,74,0.5); }
+  .live-card .lv { font-size: 1.4rem; font-weight: 800; font-family: 'Space Mono', monospace; }
+  .live-card .ll { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  .grafana-box {
+    background: var(--surface); border: 1px solid rgba(232,200,74,0.2);
+    border-radius: 12px; padding: 1.5rem; margin: 1rem 0;
+  }
+  .grafana-box h3 { color: var(--accent); font-size: 13px; font-family: 'Space Mono', monospace; margin-bottom: 1rem; }
+  .grafana-box pre {
+    background: var(--surface2); border-radius: 8px; padding: 12px;
+    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text);
+    overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0.5rem 0;
+  }
+  .grafana-box p { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 0.5rem 0; }
+  .grafana-box ol { padding-left: 1.2rem; }
+  .grafana-box li { font-size: 13px; color: var(--muted); line-height: 1.9; }
+  .grafana-box li strong { color: var(--text); }
 </style>
 </head>
 <body>
@@ -254,6 +303,7 @@
     <button class="tab-btn" onclick="showView('experiment')">Eksperiment</button>
     <button class="tab-btn" onclick="showView('analysis')">Analiza</button>
     <button class="tab-btn" onclick="showView('results')">Rezultati</button>
+    <button class="tab-btn" onclick="showView('mqtt')">MQTT</button>
   </div>
 </nav>
 
@@ -478,6 +528,103 @@
   </div>
 </div>
 
+<!-- MQTT -->
+<div class="view" id="view-mqtt">
+  <div class="section-head" style="margin-top:0"><h2>MQTT odjemalec</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Poveži se na javni broker prek WebSocket in objavljaj podatke udarcev v realnem času. Deluje direktno v brskalniku — ni treba nič namestiti.</p>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Broker (WebSocket URL)</label>
+      <select id="mqtt-broker-preset" onchange="mqttPresetChange()">
+        <option value="wss://broker.hivemq.com:8884/mqtt">HiveMQ (javni, TLS)</option>
+        <option value="ws://broker.hivemq.com:8000/mqtt">HiveMQ (javni, brez TLS)</option>
+        <option value="wss://broker.emqx.io:8084/mqtt">EMQX (javni, TLS)</option>
+        <option value="ws://broker.emqx.io:8083/mqtt">EMQX (javni, brez TLS)</option>
+        <option value="custom">Po meri (Raspberry Pi ...)</option>
+      </select>
+    </div>
+    <div class="form-group" id="custom-url-group" style="display:none">
+      <label>URL po meri</label>
+      <input type="text" id="mqtt-custom-url" placeholder="ws://192.168.1.x:9001/mqtt">
+    </div>
+    <div class="form-group">
+      <label>Topic (osnova)</label>
+      <input type="text" id="mqtt-topic" value="tenis/vaja1">
+    </div>
+    <div class="form-group">
+      <label>Client ID</label>
+      <input type="text" id="mqtt-clientid" value="">
+    </div>
+    <div class="form-group">
+      <label>Uporabniško ime (opcijsko)</label>
+      <input type="text" id="mqtt-user" placeholder="pusti prazno za javni broker">
+    </div>
+    <div class="form-group">
+      <label>Geslo (opcijsko)</label>
+      <input type="password" id="mqtt-pass" placeholder="pusti prazno za javni broker">
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;margin:1rem 0;flex-wrap:wrap">
+    <div class="mqtt-indicator">
+      <div class="mqtt-dot" id="mqtt-dot"></div>
+      <span id="mqtt-status-text">Ni povezave</span>
+    </div>
+    <button class="btn btn-primary" id="btn-mqtt-connect" onclick="mqttConnect()">Poveži</button>
+    <button class="btn btn-danger" id="btn-mqtt-disconnect" onclick="mqttDisconnect()" style="display:none">Prekini</button>
+    <button class="btn btn-ghost" onclick="mqttClearLog()">Počisti dnevnik</button>
+  </div>
+
+  <div class="section-head"><h2>Podatki v živo</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:0.5rem;">Ko je MQTT povzan, vsak klik FH/BH v zavihku Eksperiment samodejno objavi sporočilo. Lahko tudi ročno objavi spodaj.</p>
+
+  <div class="live-grid">
+    <div class="live-card" id="lc-type"><div class="lv" id="lv-type">—</div><div class="ll">Zadnji udarec</div></div>
+    <div class="live-card" id="lc-count"><div class="lv" id="lv-count">0</div><div class="ll">Skupaj objav</div></div>
+    <div class="live-card" id="lc-fh"><div class="lv fh" id="lv-fh">0</div><div class="ll">Forehand</div></div>
+    <div class="live-card" id="lc-bh"><div class="lv bh" id="lv-bh">0</div><div class="ll">Backhand</div></div>
+  </div>
+
+  <div class="section-head"><h2>Ročna objava</h2></div>
+  <div class="pub-row">
+    <div class="form-group" style="flex:2">
+      <label>Topic</label>
+      <input type="text" id="pub-topic" placeholder="npr. tenis/vaja1/test">
+    </div>
+    <div class="form-group" style="flex:3">
+      <label>Sporočilo (payload)</label>
+      <input type="text" id="pub-payload" placeholder='npr. {"tip":"FH","cas":"12:00:00"}'>
+    </div>
+    <div class="form-group" style="flex:none">
+      <label style="opacity:0">.</label>
+      <button class="btn btn-primary" onclick="mqttPublishManual()">Objavi</button>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Dnevnik sporočil</h2></div>
+  <div class="mqtt-log" id="mqtt-log">
+    <div class="mqtt-msg sys"><span class="m-time">—</span><span class="m-topic">sistem</span><span class="m-payload">MQTT dnevnik — čakam na sporočila ...</span></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="grafana-box">
+    <h3>📊 Grafana vizualizacija (5 točk)</h3>
+    <p>Za prikaz v Grafani namesti <strong>Grafana MQTT Data Source</strong> vtičnik in poveži na isti broker. Podatki se objavljajo kot JSON:</p>
+    <pre id="grafana-example">{"tip":"FH","cas":"2026-05-23T10:00:00Z","eksperiment":"Tenis_vaja_1","oseba":"Svarun","hitrost":"Normalno","fh_skupaj":5,"bh_skupaj":3}</pre>
+    <p>Navodila za namestitev:</p>
+    <ol>
+      <li>Namesti Grafana: <strong>grafana.com/grafana/download</strong> (Windows/macOS/Linux)</li>
+      <li>Namesti vtičnik: <code>grafana-cli plugins install grafana-mqtt-datasource</code></li>
+      <li>V Grafana: <strong>Configuration → Data Sources → Add → MQTT</strong></li>
+      <li>URI: <code id="grafana-broker-uri">wss://broker.hivemq.com:8884</code></li>
+      <li>Topic filter: <code id="grafana-topic-filter">tenis/vaja1/#</code></li>
+      <li>Ustvari dashboard → Add panel → Query: <strong>tip, fh_skupaj, bh_skupaj</strong></li>
+    </ol>
+  </div>
+</div>
+
 <div class="status-bar">
   <div class="status-dot" id="status-dot"></div>
   <span id="status-text">Pripravljeno</span>
@@ -486,6 +633,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 // STATE
@@ -816,6 +964,162 @@ function exportCSVSummary() {
   dl(new Blob([csv], {type:'text/csv'}), 'tenis_summary.csv');
   toast('CSV povzetek izvožen ✓');
 }
+
+// ─── MQTT ────────────────────────────────────────────────────────────────────
+let mqttClient = null;
+let mqttPubCount = 0;
+
+function mqttPresetChange() {
+  const sel = document.getElementById('mqtt-broker-preset').value;
+  document.getElementById('custom-url-group').style.display = sel === 'custom' ? 'flex' : 'none';
+  document.getElementById('grafana-broker-uri').textContent =
+    sel === 'custom' ? (document.getElementById('mqtt-custom-url').value || 'ws://...') :
+    sel.replace('/mqtt','');
+}
+
+function mqttBrokerUrl() {
+  const preset = document.getElementById('mqtt-broker-preset').value;
+  return preset === 'custom' ? document.getElementById('mqtt-custom-url').value : preset;
+}
+
+function mqttSetStatus(state, msg) {
+  const dot = document.getElementById('mqtt-dot');
+  dot.className = 'mqtt-dot' + (state === 'connected' ? ' connected' : state === 'connecting' ? ' connecting' : '');
+  document.getElementById('mqtt-status-text').textContent = msg;
+  setStatus('MQTT: ' + msg, state === 'connected');
+}
+
+function mqttLog(topic, payload, isSys) {
+  const log = document.getElementById('mqtt-log');
+  const entry = document.createElement('div');
+  entry.className = 'mqtt-msg' + (isSys ? ' sys' : '');
+  const t = new Date().toLocaleTimeString('sl-SI');
+  entry.innerHTML = `<span class="m-time">${t}</span><span class="m-topic">${topic}</span><span class="m-payload">${payload}</span>`;
+  log.appendChild(entry);
+  if(log.children.length > 100) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+function mqttConnect() {
+  const url = mqttBrokerUrl();
+  if(!url) { toast('Vnesi URL brokerja.'); return; }
+
+  const clientId = document.getElementById('mqtt-clientid').value ||
+    'tenis_' + Math.random().toString(36).substr(2,6);
+  document.getElementById('mqtt-clientid').value = clientId;
+
+  mqttSetStatus('connecting', 'Povezujem ...');
+  mqttLog('sistem', 'Vzpostavljam povezavo: ' + url, true);
+
+  const opts = { clientId, clean: true, reconnectPeriod: 0, connectTimeout: 10000 };
+  const user = document.getElementById('mqtt-user').value;
+  const pass = document.getElementById('mqtt-pass').value;
+  if(user) { opts.username = user; opts.password = pass; }
+
+  try {
+    mqttClient = mqtt.connect(url, opts);
+  } catch(e) {
+    mqttSetStatus('error', 'Napaka: ' + e.message);
+    toast('MQTT napaka: ' + e.message); return;
+  }
+
+  mqttClient.on('connect', () => {
+    mqttSetStatus('connected', 'Povezan — ' + new URL(url).hostname);
+    mqttLog('sistem', '✓ Uspešno povezan na ' + url, true);
+    document.getElementById('btn-mqtt-connect').style.display = 'none';
+    document.getElementById('btn-mqtt-disconnect').style.display = '';
+    const baseTopic = document.getElementById('mqtt-topic').value;
+    document.getElementById('pub-topic').value = baseTopic + '/udarec';
+    document.getElementById('grafana-topic-filter').textContent = baseTopic + '/#';
+    mqttClient.subscribe(baseTopic + '/#', err => {
+      if(!err) mqttLog('sistem', 'Naročen na: ' + baseTopic + '/#', true);
+    });
+    toast('MQTT povezan ✓');
+  });
+
+  mqttClient.on('message', (topic, message) => {
+    mqttLog(topic, message.toString(), false);
+    // parse and update live cards
+    try {
+      const d = JSON.parse(message.toString());
+      if(d.tip) {
+        flashCard('lc-type'); document.getElementById('lv-type').textContent = d.tip;
+        if(d.fh_skupaj !== undefined) { flashCard('lc-fh'); document.getElementById('lv-fh').textContent = d.fh_skupaj; }
+        if(d.bh_skupaj !== undefined) { flashCard('lc-bh'); document.getElementById('lv-bh').textContent = d.bh_skupaj; }
+      }
+    } catch(e) {}
+  });
+
+  mqttClient.on('error', err => {
+    mqttSetStatus('', 'Napaka: ' + err.message);
+    mqttLog('sistem', '✗ ' + err.message, true);
+    toast('MQTT napaka: ' + err.message);
+  });
+
+  mqttClient.on('close', () => {
+    mqttSetStatus('', 'Prekinjena');
+    document.getElementById('btn-mqtt-connect').style.display = '';
+    document.getElementById('btn-mqtt-disconnect').style.display = 'none';
+    mqttLog('sistem', 'Povezava prekinjena', true);
+  });
+}
+
+function mqttDisconnect() {
+  if(mqttClient) { mqttClient.end(); mqttClient = null; }
+}
+
+function mqttPublish(topic, payload) {
+  if(!mqttClient || !mqttClient.connected) return false;
+  mqttClient.publish(topic, typeof payload === 'string' ? payload : JSON.stringify(payload), { qos: 0, retain: false });
+  mqttPubCount++;
+  flashCard('lc-count');
+  document.getElementById('lv-count').textContent = mqttPubCount;
+  return true;
+}
+
+function mqttPublishManual() {
+  const topic = document.getElementById('pub-topic').value;
+  const payload = document.getElementById('pub-payload').value;
+  if(!topic || !payload) { toast('Vnesi topic in sporočilo.'); return; }
+  if(!mqttClient || !mqttClient.connected) { toast('Najprej se poveži na MQTT broker.'); return; }
+  mqttPublish(topic, payload);
+  mqttLog(topic, payload, false);
+  toast('Objavljeno ✓');
+}
+
+function mqttClearLog() {
+  document.getElementById('mqtt-log').innerHTML =
+    '<div class="mqtt-msg sys"><span class="m-time">—</span><span class="m-topic">sistem</span><span class="m-payload">Dnevnik počiščen</span></div>';
+}
+
+function flashCard(id) {
+  const el = document.getElementById(id);
+  el.classList.add('updated');
+  setTimeout(() => el.classList.remove('updated'), 800);
+}
+
+// Hook into logStroke so every stroke also publishes via MQTT
+const _origLogStroke = logStroke;
+window.logStroke = function(type) {
+  _origLogStroke(type);
+  if(mqttClient && mqttClient.connected) {
+    const baseTopic = document.getElementById('mqtt-topic').value;
+    const payload = {
+      tip: type,
+      cas: new Date().toISOString(),
+      eksperiment: document.getElementById('exp-name').value,
+      oseba: document.getElementById('exp-person').value,
+      hitrost: document.getElementById('exp-speed').value,
+      fh_skupaj: state.fhCount,
+      bh_skupaj: state.bhCount
+    };
+    mqttPublish(baseTopic + '/udarec', payload);
+    document.getElementById('lv-type').textContent = type;
+    document.getElementById('lv-fh').textContent = state.fhCount;
+    document.getElementById('lv-bh').textContent = state.bhCount;
+    flashCard('lc-type');
+  }
+};
 </script>
 </body>
 </html>
