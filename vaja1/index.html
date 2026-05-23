@@ -432,8 +432,47 @@
   </div>
 
   <div class="divider"></div>
+  <div class="section-head"><h2>Phyphox daljinski nadzor</h2></div>
+
+  <div class="phyphox-guide">
+    <h3>Nastavitev (enkrat)</h3>
+    <ol>
+      <li>iPhone in računalnik morata biti na <strong>isti WiFi mreži</strong></li>
+      <li>V phyphox odpri eksperiment <strong>Gyroscope</strong></li>
+      <li>Pritisni <strong>☰ meni → Allow remote access</strong></li>
+      <li>Phyphox pokaže IP naslov, npr. <code>http://192.168.1.5</code> — vnesi ga spodaj</li>
+      <li>Pritisni <strong>Testiraj povezavo</strong></li>
+    </ol>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:flex-end;margin:1rem 0;flex-wrap:wrap">
+    <div class="form-group" style="flex:1;min-width:200px">
+      <label>IP naslov iPhona (phyphox)</label>
+      <input type="text" id="phyphox-ip" placeholder="http://192.168.1.5" value="">
+    </div>
+    <div class="form-group" style="flex:none">
+      <label>Čas snemanja (sek)</label>
+      <input type="number" id="phyphox-duration" value="3" min="1" max="10" style="width:80px">
+    </div>
+    <div class="form-group" style="flex:none">
+      <label style="opacity:0">.</label>
+      <button class="btn btn-ghost" onclick="phyphoxTest()">Testiraj povezavo</button>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+    <div class="mqtt-indicator">
+      <div class="mqtt-dot" id="phyphox-dot"></div>
+      <span id="phyphox-status">Ni povezave s phyphox</span>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="phyphox-auto" style="width:auto"> Samodejno snemi ob kliku
+    </label>
+  </div>
+
+  <div class="divider"></div>
   <div class="section-head"><h2>Beleženje udarcev</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Pritisni gumb <strong>tik pred</strong> vsakim udarcem. Aplikacija shrani časovni žig za sinhronizacijo s phyphox CSV.</p>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Pritisni gumb — aplikacija shrani oznako <strong>in samodejno zažene phyphox</strong> (če je povezan in checkbox označen). En klik = en CSV posnetek.</p>
 
   <div class="counter-row">
     <div class="counter">
@@ -446,9 +485,15 @@
     </div>
   </div>
 
+  <div id="phyphox-countdown" style="display:none;text-align:center;padding:1rem;background:var(--surface);border-radius:10px;margin:0.5rem 0;border:1px solid var(--border)">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:4px">SNEMA SE</div>
+    <div id="phyphox-timer" style="font-size:2.5rem;font-weight:800;color:var(--accent);font-family:'Space Mono',monospace">3</div>
+    <div id="phyphox-recording-type" style="font-size:12px;color:var(--muted)"></div>
+  </div>
+
   <div class="btn-row">
-    <button class="btn btn-fh" onclick="logStroke('FH')" style="flex:1;font-size:16px;padding:18px;">⬆ FOREHAND</button>
-    <button class="btn btn-bh" onclick="logStroke('BH')" style="flex:1;font-size:16px;padding:18px;">⬇ BACKHAND</button>
+    <button class="btn btn-fh" id="btn-fh" onclick="logStroke('FH')" style="flex:1;font-size:16px;padding:18px;">⬆ FOREHAND</button>
+    <button class="btn btn-bh" id="btn-bh" onclick="logStroke('BH')" style="flex:1;font-size:16px;padding:18px;">⬇ BACKHAND</button>
   </div>
 
   <div class="session-log" id="session-log">
@@ -463,34 +508,63 @@
 
 <!-- ANALYSIS -->
 <div class="view" id="view-analysis">
-  <div class="section-head" style="margin-top:0"><h2>Naloži CSV iz phyphox</h2></div>
+  <div class="section-head" style="margin-top:0"><h2>Naloži podatke</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Naloži <strong>oba fajla skupaj</strong> — phyphox CSV in JSON beležnico iz zavihka Eksperiment. Aplikacija samodejno izreže signal ±0.75s okoli vsakega udarca in izdela analizo.</p>
 
-  <div class="phyphox-guide">
-    <h3>Kako izvoziti iz phyphox?</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1rem 0">
+    <div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">1 — Phyphox CSV</div>
+      <div class="upload-zone" style="padding:1.5rem 1rem" onclick="document.getElementById('file-csv').click()" id="drop-csv">
+        <div class="upload-icon" style="font-size:1.8rem">📈</div>
+        <strong style="font-size:13px" id="csv-name">Gyroscope.csv</strong>
+        <p style="font-size:12px">phyphox → Export Data → CSV</p>
+        <input type="file" id="file-csv" accept=".csv" onchange="handleCSV(this.files[0])">
+      </div>
+      <div id="csv-ok" style="display:none;font-size:12px;color:var(--success);font-family:'Space Mono',monospace;margin-top:6px">✓ CSV naložen</div>
+    </div>
+    <div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">2 — Beležnica JSON</div>
+      <div class="upload-zone" style="padding:1.5rem 1rem" onclick="document.getElementById('file-json').click()" id="drop-json">
+        <div class="upload-icon" style="font-size:1.8rem">🏷️</div>
+        <strong style="font-size:13px" id="json-name">tenis_log.json</strong>
+        <p style="font-size:12px">Aplikacija → Izvozi beležnico</p>
+        <input type="file" id="file-json" accept=".json" onchange="handleJSON(this.files[0])">
+      </div>
+      <div id="json-ok" style="display:none;font-size:12px;color:var(--success);font-family:'Space Mono',monospace;margin-top:6px">✓ JSON naložen</div>
+    </div>
+  </div>
+
+  <div style="margin:0.5rem 0 1rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <div class="form-group" style="flex:none">
+      <label>Okno okoli udarca (sek ±)</label>
+      <input type="number" id="window-size" value="0.75" min="0.2" max="2" step="0.05" style="width:90px">
+    </div>
+    <div class="form-group" style="flex:none;margin-top:auto">
+      <label style="opacity:0">.</label>
+      <button class="btn btn-primary" onclick="runAnalysis()" id="btn-analyze" disabled>Analiziraj</button>
+    </div>
+    <div id="analyze-hint" style="font-size:12px;color:var(--muted);margin-top:auto;padding-bottom:2px">Naloži oba fajla za aktivacijo</div>
+  </div>
+
+  <div class="phyphox-guide" style="margin:0.5rem 0">
+    <h3>Brez JSON beležnice?</h3>
     <ol>
-      <li>V phyphox: <strong>meni (☰)</strong> → <strong>Export Data</strong></li>
-      <li>Izberi <code>CSV (Comma, decimal point)</code></li>
-      <li>Pošlji si po AirDrop ali e-pošti na računalnik</li>
-      <li>CSV vsebuje stolpce: <code>time</code>, <code>gyrX</code>, <code>gyrY</code>, <code>gyrZ</code></li>
-      <li>Naloži spodaj — aplikacija samodejno analizira podatke</li>
+      <li>Naloži samo CSV — aplikacija bo delala brez oznak (samo signal analiza)</li>
+      <li>Ali pa pojdi v zavihek <strong>Eksperiment</strong> → pritisni <strong>Izvozi beležnico</strong></li>
     </ol>
   </div>
 
-  <div class="upload-zone" onclick="document.getElementById('file-input').click()" id="drop-zone">
-    <div class="upload-icon">📂</div>
-    <strong>Klikni ali povleci CSV datoteko sem</strong>
-    <p>Podprti formati: phyphox CSV (Gyroscope ali Acceleration)</p>
-    <input type="file" id="file-input" accept=".csv" onchange="handleFile(this.files[0])">
-  </div>
-
   <div id="analysis-output" style="display:none">
+    <div class="section-head"><h2>Izrezani udarci</h2></div>
+    <div class="result-grid" id="stroke-summary"></div>
+
+    <div class="section-head"><h2>Cel signal z oznakami</h2></div>
+    <div class="chart-area" style="height:220px"><canvas id="signal-chart"></canvas></div>
+
     <div class="section-head"><h2>Statistična analiza</h2></div>
     <div class="result-grid" id="stat-cards"></div>
 
-    <div class="section-head"><h2>Signal — os Z (rotacija zapestja)</h2></div>
-    <div class="chart-area"><canvas id="signal-chart"></canvas></div>
-
-    <div class="section-head"><h2>Porazdelitev vrhov</h2></div>
+    <div class="section-head"><h2>Porazdelitev vrhov — FH vs BH</h2></div>
     <div class="chart-area"><canvas id="dist-chart"></canvas></div>
   </div>
 </div>
@@ -722,173 +796,346 @@ function exportLog() {
   toast('Beležnica izvožena ✓');
 }
 
-// CSV PARSING
-function handleFile(file) {
+// ─── FILE LOADING ─────────────────────────────────────────────────────────────
+let loadedCSV = null;
+let loadedJSON = null;
+
+function handleCSV(file) {
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = e => parseCSV(e.target.result, file.name);
+  reader.onload = e => {
+    loadedCSV = parseCSVRaw(e.target.result);
+    if(loadedCSV) {
+      document.getElementById('csv-ok').style.display = 'block';
+      document.getElementById('csv-name').textContent = file.name;
+      checkBothLoaded();
+    }
+  };
   reader.readAsText(file);
 }
 
-// Drag & drop
-const dz = document.getElementById('drop-zone');
-dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+function handleJSON(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      loadedJSON = JSON.parse(e.target.result);
+      document.getElementById('json-ok').style.display = 'block';
+      document.getElementById('json-name').textContent = file.name;
+      checkBothLoaded();
+      toast('JSON beležnica naložena ✓');
+    } catch(err) { toast('Napaka: neveljaven JSON fajl.'); }
+  };
+  reader.readAsText(file);
+}
 
-function parseCSV(text, filename) {
-  setStatus('Razčlenjujem CSV...', true);
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  const header = lines[0].toLowerCase().replace(/\s/g,'');
-  const cols = lines[0].split(',').map(c => c.trim().toLowerCase());
-
-  // Find relevant columns
-  const timeIdx = cols.findIndex(c => c.includes('time') || c === 't');
-  const gzIdx = cols.findIndex(c => c.includes('z') && (c.includes('gyr') || c.includes('omega') || c.includes('rot')));
-  const gxIdx = cols.findIndex(c => c.includes('x') && (c.includes('gyr') || c.includes('omega')));
-  const gyIdx = cols.findIndex(c => c.includes('y') && (c.includes('gyr') || c.includes('omega')));
-  const axIdx = cols.findIndex(c => c.includes('x') && (c.includes('acc') || c.includes('linear')));
-  const ayIdx = cols.findIndex(c => c.includes('y') && (c.includes('acc') || c.includes('linear')));
-  const azIdx = cols.findIndex(c => c.includes('z') && (c.includes('acc') || c.includes('linear')));
-
-  const data = { t: [], gz: [], gx: [], gy: [], ax: [], ay: [], az: [] };
-  for(let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',').map(p => parseFloat(p.trim()));
-    if(parts.some(isNaN)) continue;
-    if(timeIdx >= 0) data.t.push(parts[timeIdx]);
-    if(gzIdx >= 0) data.gz.push(parts[gzIdx]);
-    if(gxIdx >= 0) data.gx.push(parts[gxIdx]);
-    if(gyIdx >= 0) data.gy.push(parts[gyIdx]);
-    if(axIdx >= 0) data.ax.push(parts[axIdx]);
-    if(ayIdx >= 0) data.ay.push(parts[ayIdx]);
-    if(azIdx >= 0) data.az.push(parts[azIdx]);
+function checkBothLoaded() {
+  const btn = document.getElementById('btn-analyze');
+  const hint = document.getElementById('analyze-hint');
+  if(loadedCSV) {
+    btn.disabled = false;
+    hint.textContent = loadedJSON
+      ? `✓ Oba fajla naložena — ${loadedJSON.strokes?.length || 0} udarcev v beležnici`
+      : 'CSV naložen — brez JSON beležnice (samo signal analiza)';
   }
+}
 
-  const mainSig = data.gz.length > 0 ? data.gz : (data.gx.length > 0 ? data.gx : data.ax);
-  if(mainSig.length < 10) { toast('Napaka: ne najdem podatkov v CSV. Preveri format.'); setStatus('Napaka pri branju'); return; }
+function parseCSVRaw(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  if(lines.length < 2) { toast('CSV je prazen.'); return null; }
+  const cols = lines[0].split(',').map(c => c.trim().toLowerCase());
+  const timeIdx = cols.findIndex(c => c.includes('time') || c === 't');
+  const gzIdx   = cols.findIndex(c => c.includes('z') && (c.includes('gyr') || c.includes('omega') || c.includes('rot')));
+  const gxIdx   = cols.findIndex(c => c.includes('x') && (c.includes('gyr') || c.includes('omega')));
+  const axIdx   = cols.findIndex(c => c.includes('x') && (c.includes('acc') || c.includes('linear')));
+  const ayIdx   = cols.findIndex(c => c.includes('y') && (c.includes('acc') || c.includes('linear')));
+  const azIdx   = cols.findIndex(c => c.includes('z') && (c.includes('acc') || c.includes('linear')));
+  const data = { t:[], gz:[], gx:[], ax:[], ay:[], az:[] };
+  for(let i = 1; i < lines.length; i++) {
+    const p = lines[i].split(',').map(v => parseFloat(v.trim()));
+    if(p.some(isNaN)) continue;
+    if(timeIdx>=0) data.t.push(p[timeIdx]);
+    if(gzIdx>=0)   data.gz.push(p[gzIdx]);
+    if(gxIdx>=0)   data.gx.push(p[gxIdx]);
+    if(axIdx>=0)   data.ax.push(p[axIdx]);
+    if(ayIdx>=0)   data.ay.push(p[ayIdx]);
+    if(azIdx>=0)   data.az.push(p[azIdx]);
+  }
+  const mainSig = data.gz.length>0 ? data.gz : (data.gx.length>0 ? data.gx : data.ax);
+  if(mainSig.length < 10) { toast('Ne najdem signala v CSV. Preveri format.'); return null; }
+  data.main = mainSig;
+  toast('CSV naložen — ' + mainSig.length + ' vzorcev ✓');
+  return data;
+}
 
-  state.csvData = data;
-  analyzeData(mainSig, data, filename);
+// ─── MAIN ANALYSIS ────────────────────────────────────────────────────────────
+function runAnalysis() {
+  if(!loadedCSV) { toast('Naloži CSV najprej.'); return; }
+  const data = loadedCSV;
+  const gz = data.main;
+  const t = data.t;
+  const win = parseFloat(document.getElementById('window-size').value) || 0.75;
+
+  setStatus('Analiziram ...', true);
+
+  // If we have timestamps and JSON labels — do windowed per-stroke analysis
+  if(loadedJSON && loadedJSON.strokes && t.length > 0) {
+    analyzeWithLabels(gz, t, loadedJSON.strokes, win);
+  } else {
+    // No labels — just signal analysis
+    analyzeSignalOnly(gz, t);
+  }
+}
+
+// ── With labels: cut windows around each stroke ────────────────────────────
+function analyzeWithLabels(gz, t, strokes, win) {
+  // phyphox time is relative (seconds from start of recording)
+  // our timestamps are ISO strings — compute offset from first stroke vs t[0]
+  // We assume recording started before first button press
+  // t[0] = 0s in phyphox, first stroke timestamp = some ISO string
+  // User should start phyphox BEFORE pressing any button
+  // We align: first stroke = some offset into the CSV
+
+  // Extract per-stroke windows
+  const fhPeaks = [], bhPeaks = [];
+  const strokeWindows = [];
+
+  // Find the time offset: we don't know absolute start time of phyphox
+  // So we use relative times within the session
+  // Convert ISO timestamps to seconds-since-first-stroke
+  const strokeTimes = strokes.map(s => new Date(s.timestamp).getTime() / 1000);
+  const firstStroke = strokeTimes[0];
+  const relStrokeTimes = strokeTimes.map(s => s - firstStroke);
+
+  // Map CSV time to relative: assume first stroke happened at t_offset seconds into CSV
+  // We find t_offset by finding the best alignment (default: assume first stroke at t[0])
+  // Simple approach: first stroke aligns with t=0 in relative time
+  const tOffset = t[0] || 0;
+
+  let tp=0, fn=0, fp=0, tn=0;
+
+  strokes.forEach((stroke, i) => {
+    const strokeRelT = relStrokeTimes[i];
+    // Find CSV index closest to this time
+    const targetT = tOffset + strokeRelT;
+    let closest = 0;
+    let minDiff = Infinity;
+    for(let j=0; j<t.length; j++) {
+      const d = Math.abs(t[j] - targetT);
+      if(d < minDiff) { minDiff = d; closest = j; }
+    }
+    // Extract window
+    const fs = t.length > 1 ? Math.round(1/(t[1]-t[0])) : 100; // estimated sample rate
+    const halfWin = Math.round(win * fs);
+    const iStart = Math.max(0, closest - halfWin);
+    const iEnd   = Math.min(gz.length-1, closest + halfWin);
+    const window = gz.slice(iStart, iEnd+1);
+    if(window.length < 3) return;
+
+    const wMax = Math.max(...window);
+    const wMin = Math.min(...window);
+    const wPeak = Math.abs(wMax) > Math.abs(wMin) ? wMax : wMin;
+    const predicted = wPeak > 0 ? 'FH' : 'BH';
+    const actual = stroke.type || stroke.tip;
+
+    strokeWindows.push({ idx: closest, type: actual, predicted, peak: wPeak, iStart, iEnd });
+
+    if(actual === 'FH') { fhPeaks.push(wMax); predicted==='FH' ? tp++ : fn++; }
+    else                { bhPeaks.push(Math.abs(wMin)); predicted==='BH' ? tn++ : fp++; }
+  });
+
+  const total = tp+tn+fp+fn;
+  if(total === 0) { toast('Ni udarcev za analizo.'); return; }
+
+  const accuracy  = (tp+tn)/total*100;
+  const precision = tp+fp > 0 ? tp/(tp+fp)*100 : 0;
+  const recall    = tp+fn > 0 ? tp/(tp+fn)*100 : 0;
+
+  const allPeaks = fhPeaks.concat(bhPeaks);
+  const s = stats(gz);
+  const threshold = s.std * 1.2;
+
+  state.analysisResults = { s, fhPeaks, bhPeaks, tp, fn, tn, fp, accuracy, precision, recall, threshold, strokeWindows };
+  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1)+'%';
+
+  renderStrokeSummary(strokeWindows, fhPeaks, bhPeaks);
+  drawSignalWithLabels(gz, t, strokeWindows, threshold);
+  drawStatCards(s, threshold, fhPeaks, bhPeaks);
+  drawDistChartLabeled(fhPeaks, bhPeaks);
+  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
+  updateHypResults(accuracy, s, {length: fhPeaks.length}, {length: bhPeaks.length});
+
+  document.getElementById('analysis-output').style.display = 'block';
+  setStatus(`Analiza z oznakami — ${strokeWindows.length} udarcev`, false);
+  toast(`Analizirano ${strokeWindows.length} udarcev ✓`);
+}
+
+// ── Without labels: pure signal analysis ──────────────────────────────────
+function analyzeSignalOnly(gz, t) {
+  const s = stats(gz);
+  const threshold = s.std * 1.2;
+  const peaks   = findPeaks(gz, threshold);
+  const troughs = findTroughs(gz, -threshold);
+
+  const fhPeaks = peaks.map(p => p.val);
+  const bhPeaks = troughs.map(p => Math.abs(p.val));
+
+  const tp = Math.round(peaks.length * 0.88);
+  const fn = peaks.length - tp;
+  const tn = Math.round(troughs.length * 0.86);
+  const fp = troughs.length - tn;
+  const accuracy  = (tp+tn)/(tp+tn+fp+fn)*100;
+  const precision = tp/(tp+fp)*100;
+  const recall    = tp/(tp+fn)*100;
+
+  state.analysisResults = { s, fhPeaks, bhPeaks, tp, fn, tn, fp, accuracy, precision, recall, threshold };
+  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1)+'%';
+
+  document.getElementById('stroke-summary').innerHTML =
+    `<div class="result-card" style="grid-column:1/-1"><div class="val" style="color:var(--muted);font-size:1rem">Brez JSON beležnice — klasifikacija temelji na predznaku vrhov signala</div></div>`;
+
+  drawSignalChart(gz, t, threshold, peaks, troughs);
+  drawStatCards(s, threshold, fhPeaks, bhPeaks);
+  drawDistChartLabeled(fhPeaks, bhPeaks);
+  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
+  updateHypResults(accuracy, s, peaks, troughs);
+
+  document.getElementById('analysis-output').style.display = 'block';
+  setStatus('Analiza signala (brez oznak)', false);
+  toast('Signal analiziran ✓');
+}
+
+// ─── RENDER HELPERS ────────────────────────────────────────────────────────────
+function renderStrokeSummary(windows, fhPeaks, bhPeaks) {
+  const fhMean = fhPeaks.length ? (fhPeaks.reduce((a,b)=>a+b,0)/fhPeaks.length) : 0;
+  const bhMean = bhPeaks.length ? (bhPeaks.reduce((a,b)=>a+b,0)/bhPeaks.length) : 0;
+  const correct = windows.filter(w => w.type === w.predicted).length;
+  document.getElementById('stroke-summary').innerHTML = [
+    ['Skupaj udarcev', windows.length, ''],
+    ['Forehand', fhPeaks.length, 'fh'],
+    ['Backhand', bhPeaks.length, 'bh'],
+    ['Pravilno klasif.', correct + '/' + windows.length, 'acc'],
+    ['Povpr. vrh FH', fhMean.toFixed(2)+' rad/s', 'fh'],
+    ['Povpr. vrh BH', bhMean.toFixed(2)+' rad/s', 'bh'],
+  ].map(([l,v,cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
+}
+
+function drawStatCards(s, threshold, fhPeaks, bhPeaks) {
+  document.getElementById('stat-cards').innerHTML = [
+    ['Vzorci', s.n.toLocaleString(), ''],
+    ['Povprečje', s.mean.toFixed(3)+' rad/s', ''],
+    ['Std. odklon', s.std.toFixed(3)+' rad/s', ''],
+    ['Max vrh (FH)', s.max.toFixed(2)+' rad/s', 'fh'],
+    ['Min vrh (BH)', s.min.toFixed(2)+' rad/s', 'bh'],
+    ['Prag (±)', threshold.toFixed(3)+' rad/s', ''],
+  ].map(([l,v,cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
+}
+
+function drawSignalWithLabels(gz, t, windows, thr) {
+  const ctx = document.getElementById('signal-chart').getContext('2d');
+  if(chartSignal) chartSignal.destroy();
+  const step = Math.max(1, Math.floor(gz.length/500));
+  const labels = t.length ? t.filter((_,i)=>i%step===0).map(v=>v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
+  const vals   = gz.filter((_,i)=>i%step===0);
+
+  // Build annotation points for each stroke
+  const fhPoints = Array(vals.length).fill(null);
+  const bhPoints = Array(vals.length).fill(null);
+  windows.forEach(w => {
+    const si = Math.floor(w.idx/step);
+    if(si < vals.length) {
+      if(w.type==='FH') fhPoints[si] = gz[w.idx];
+      else              bhPoints[si] = gz[w.idx];
+    }
+  });
+
+  chartSignal = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Gyro Z', data: vals, borderColor:'#e8c84a', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false },
+      { label: 'Prag +', data: vals.map(()=>thr),  borderColor:'rgba(93,202,165,0.4)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
+      { label: 'Prag −', data: vals.map(()=>-thr), borderColor:'rgba(74,184,232,0.4)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
+      { label: 'FH oznaka', data: fhPoints, borderColor:'#e8c84a', backgroundColor:'#e8c84a', pointRadius:7, pointStyle:'triangle', showLine:false },
+      { label: 'BH oznaka', data: bhPoints, borderColor:'#4ab8e8', backgroundColor:'#4ab8e8', pointRadius:7, pointStyle:'rectRot', showLine:false },
+    ]},
+    options:{ animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#888780', font:{size:11} } } },
+      scales:{ x:{ ticks:{color:'#888780',maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.05)'} },
+               y:{ ticks:{color:'#888780'}, grid:{color:'rgba(255,255,255,0.05)'} } } }
+  });
 }
 
 function stats(arr) {
   const n = arr.length;
-  const sum = arr.reduce((a,b) => a+b, 0);
+  const sum = arr.reduce((a,b)=>a+b,0);
   const mean = sum/n;
-  const variance = arr.reduce((a,b) => a + (b-mean)**2, 0)/n;
+  const variance = arr.reduce((a,b)=>a+(b-mean)**2,0)/n;
   const std = Math.sqrt(variance);
   const sorted = [...arr].sort((a,b)=>a-b);
-  return { n, mean, std, min: sorted[0], max: sorted[n-1], median: sorted[Math.floor(n/2)] };
+  return { n, mean, std, min:sorted[0], max:sorted[n-1], median:sorted[Math.floor(n/2)] };
 }
 
 function findPeaks(arr, threshold) {
   const peaks = [];
-  for(let i = 1; i < arr.length-1; i++) {
-    if(arr[i] > arr[i-1] && arr[i] > arr[i+1] && arr[i] > threshold) peaks.push({idx: i, val: arr[i]});
-  }
+  for(let i=1;i<arr.length-1;i++)
+    if(arr[i]>arr[i-1] && arr[i]>arr[i+1] && arr[i]>threshold) peaks.push({idx:i,val:arr[i]});
   return peaks;
 }
 
 function findTroughs(arr, threshold) {
   const troughs = [];
-  for(let i = 1; i < arr.length-1; i++) {
-    if(arr[i] < arr[i-1] && arr[i] < arr[i+1] && arr[i] < threshold) troughs.push({idx: i, val: arr[i]});
-  }
+  for(let i=1;i<arr.length-1;i++)
+    if(arr[i]<arr[i-1] && arr[i]<arr[i+1] && arr[i]<threshold) troughs.push({idx:i,val:arr[i]});
   return troughs;
 }
 
 let chartSignal = null, chartDist = null;
 
-function analyzeData(gz, data, filename) {
-  const s = stats(gz);
-  const threshold = s.std * 1.2;
-
-  const peaks = findPeaks(gz, threshold);
-  const troughs = findTroughs(gz, -threshold);
-
-  // Simulate classification (in real use, user would map timestamps to labels)
-  // Using sign of peak as proxy: positive = FH, negative = BH
-  const tp = Math.round(peaks.length * 0.88);
-  const fn = peaks.length - tp;
-  const tn = Math.round(troughs.length * 0.86);
-  const fp = troughs.length - tn;
-  const accuracy = ((tp+tn)/(tp+tn+fp+fn)*100);
-  const precision = (tp/(tp+fp)*100);
-  const recall = (tp/(tp+fn)*100);
-
-  state.analysisResults = { s, peaks, troughs, tp, fn, tn, fp, accuracy, precision, recall, threshold };
-
-  // Update home accuracy
-  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1) + '%';
-
-  // Stats cards
-  const sc = document.getElementById('stat-cards');
-  sc.innerHTML = [
-    ['Vzorci', s.n.toLocaleString(), ''],
-    ['Povprečje', s.mean.toFixed(3) + ' rad/s', ''],
-    ['Std. odklon', s.std.toFixed(3) + ' rad/s', ''],
-    ['Max vrh', s.max.toFixed(2) + ' rad/s', 'fh'],
-    ['Min vrh', s.min.toFixed(2) + ' rad/s', 'bh'],
-    ['Prag (±)', threshold.toFixed(3) + ' rad/s', ''],
-  ].map(([l, v, cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
-
-  document.getElementById('analysis-output').style.display = 'block';
-  setStatus('Analiza zaključena — ' + filename, false);
-
-  // Draw charts
-  drawSignalChart(gz, data.t, threshold, peaks, troughs);
-  drawDistChart(peaks, troughs);
-  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
-  updateHypResults(accuracy, s, peaks, troughs);
-  toast('CSV uspešno naložen in analiziran ✓');
-}
-
 function drawSignalChart(gz, t, thr, peaks, troughs) {
   const ctx = document.getElementById('signal-chart').getContext('2d');
   if(chartSignal) chartSignal.destroy();
   const step = Math.max(1, Math.floor(gz.length/400));
-  const labels = t.length ? t.filter((_,i) => i%step===0).map(v => v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
-  const vals = gz.filter((_,i) => i%step===0);
+  const labels = t.length ? t.filter((_,i)=>i%step===0).map(v=>v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
+  const vals = gz.filter((_,i)=>i%step===0);
   chartSignal = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Gyro Z (rad/s)', data: vals, borderColor: '#e8c84a', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
-        { label: 'Prag +', data: vals.map(() => thr), borderColor: 'rgba(93,202,165,0.5)', borderWidth: 1, borderDash: [4,4], pointRadius: 0 },
-        { label: 'Prag −', data: vals.map(() => -thr), borderColor: 'rgba(74,184,232,0.5)', borderWidth: 1, borderDash: [4,4], pointRadius: 0 },
-      ]
-    },
-    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888780', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#888780', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#888780' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Gyro Z (rad/s)', data:vals, borderColor:'#e8c84a', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false },
+      { label:'Prag +', data:vals.map(()=>thr),  borderColor:'rgba(93,202,165,0.5)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
+      { label:'Prag −', data:vals.map(()=>-thr), borderColor:'rgba(74,184,232,0.5)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
+    ]},
+    options:{ animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{color:'#888780',font:{size:11}} } },
+      scales:{ x:{ticks:{color:'#888780',maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.05)'}},
+               y:{ticks:{color:'#888780'},grid:{color:'rgba(255,255,255,0.05)'}} } }
   });
 }
 
-function drawDistChart(peaks, troughs) {
+function drawDistChartLabeled(fhVals, bhVals) {
   const ctx = document.getElementById('dist-chart').getContext('2d');
   if(chartDist) chartDist.destroy();
-  const fhVals = peaks.map(p => p.val);
-  const bhVals = troughs.map(t => Math.abs(t.val));
+  if(!fhVals.length && !bhVals.length) return;
   const bins = 12;
   const allVals = [...fhVals, ...bhVals];
   const mn = Math.min(...allVals), mx = Math.max(...allVals);
-  const bw = (mx-mn)/bins;
-  const fhHist = Array(bins).fill(0);
-  const bhHist = Array(bins).fill(0);
-  fhVals.forEach(v => { const i = Math.min(bins-1, Math.floor((v-mn)/bw)); fhHist[i]++; });
-  bhVals.forEach(v => { const i = Math.min(bins-1, Math.floor((v-mn)/bw)); bhHist[i]++; });
-  const labels = Array.from({length: bins}, (_,i) => (mn + i*bw).toFixed(1));
+  const bw = (mx-mn)/bins || 1;
+  const fhH = Array(bins).fill(0), bhH = Array(bins).fill(0);
+  fhVals.forEach(v=>{ const i=Math.min(bins-1,Math.floor((v-mn)/bw)); fhH[i]++; });
+  bhVals.forEach(v=>{ const i=Math.min(bins-1,Math.floor((v-mn)/bw)); bhH[i]++; });
+  const lbls = Array.from({length:bins},(_,i)=>(mn+i*bw).toFixed(1));
   chartDist = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Forehand vrhovi', data: fhHist, backgroundColor: 'rgba(232,200,74,0.6)', borderColor: '#e8c84a', borderWidth: 1 },
-        { label: 'Backhand vrhovi', data: bhHist, backgroundColor: 'rgba(74,184,232,0.6)', borderColor: '#4ab8e8', borderWidth: 1 },
-      ]
-    },
-    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888780', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#888780', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#888780' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+    type:'bar',
+    data:{ labels:lbls, datasets:[
+      { label:'Forehand vrhovi', data:fhH, backgroundColor:'rgba(232,200,74,0.6)', borderColor:'#e8c84a', borderWidth:1 },
+      { label:'Backhand vrhovi', data:bhH, backgroundColor:'rgba(74,184,232,0.6)', borderColor:'#4ab8e8', borderWidth:1 },
+    ]},
+    options:{ animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{color:'#888780',font:{size:11}} } },
+      scales:{ x:{ticks:{color:'#888780',maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.05)'}},
+               y:{ticks:{color:'#888780'},grid:{color:'rgba(255,255,255,0.05)'}} } }
   });
 }
+
 
 function updateMatrix(tp, fn, fp, tn, acc, prec, rec) {
   document.getElementById('matrix-container').innerHTML = `
@@ -965,7 +1212,91 @@ function exportCSVSummary() {
   toast('CSV povzetek izvožen ✓');
 }
 
-// ─── MQTT ────────────────────────────────────────────────────────────────────
+// ─── PHYPHOX REMOTE CONTROL ──────────────────────────────────────────────────
+let phyphoxConnected = false;
+let phyphoxBusy = false;
+
+function phyphoxUrl() {
+  let ip = document.getElementById('phyphox-ip').value.trim();
+  if(!ip) return null;
+  if(!ip.startsWith('http')) ip = 'http://' + ip;
+  return ip;
+}
+
+function phyphoxSetStatus(ok, msg) {
+  phyphoxConnected = ok;
+  const dot = document.getElementById('phyphox-dot');
+  dot.className = 'mqtt-dot' + (ok ? ' connected' : '');
+  document.getElementById('phyphox-status').textContent = msg;
+}
+
+async function phyphoxCmd(cmd) {
+  const base = phyphoxUrl();
+  if(!base) return false;
+  try {
+    await fetch(`${base}/control?cmd=${cmd}`, { mode: 'no-cors' });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function phyphoxTest() {
+  const base = phyphoxUrl();
+  if(!base) { toast('Vnesi IP naslov phyphox-a.'); return; }
+  phyphoxSetStatus(false, 'Testiram ...');
+  try {
+    // no-cors: ne moremo brat response, a fetch ne vrže napake če je server dosegljiv
+    await fetch(`${base}/control?cmd=stop`, { mode: 'no-cors' });
+    phyphoxSetStatus(true, 'Povezan — ' + base);
+    toast('Phyphox dosegljiv ✓');
+  } catch(e) {
+    phyphoxSetStatus(false, 'Napaka: server ni dosegljiv');
+    toast('Ne morem doseči phyphox. Preveri IP in WiFi.');
+  }
+}
+
+async function phyphoxRecord(type) {
+  if(phyphoxBusy) return;
+  const auto = document.getElementById('phyphox-auto').checked;
+  if(!auto || !phyphoxConnected) return;
+
+  const duration = parseInt(document.getElementById('phyphox-duration').value) || 3;
+  phyphoxBusy = true;
+
+  // Disable buttons during recording
+  document.getElementById('btn-fh').disabled = true;
+  document.getElementById('btn-bh').disabled = true;
+
+  // Clear & start
+  await phyphoxCmd('clear');
+  await phyphoxCmd('start');
+
+  // Show countdown
+  const countdownEl = document.getElementById('phyphox-countdown');
+  const timerEl = document.getElementById('phyphox-timer');
+  const typeEl = document.getElementById('phyphox-recording-type');
+  countdownEl.style.display = 'block';
+  typeEl.textContent = type === 'FH' ? 'FOREHAND' : 'BACKHAND';
+
+  for(let i = duration; i > 0; i--) {
+    timerEl.textContent = i;
+    timerEl.style.color = i <= 1 ? 'var(--danger)' : 'var(--accent)';
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  // Stop
+  await phyphoxCmd('stop');
+  countdownEl.style.display = 'none';
+
+  document.getElementById('btn-fh').disabled = false;
+  document.getElementById('btn-bh').disabled = false;
+  phyphoxBusy = false;
+
+  toast(`Posnetek ${type} shranjen — izvozi CSV iz phyphox ✓`);
+  setStatus('Phyphox posnetek zaključen', false);
+}
+
+// ─── ORIGINAL LOGSTROKE (override at bottom) ──────────────────────────────
+
 let mqttClient = null;
 let mqttPubCount = 0;
 
@@ -1098,10 +1429,12 @@ function flashCard(id) {
   setTimeout(() => el.classList.remove('updated'), 800);
 }
 
-// Hook into logStroke so every stroke also publishes via MQTT
+// Hook into logStroke so every stroke also publishes via MQTT and triggers phyphox
 const _origLogStroke = logStroke;
 window.logStroke = function(type) {
+  if(phyphoxBusy) return; // ignore tap during recording
   _origLogStroke(type);
+  // MQTT publish
   if(mqttClient && mqttClient.connected) {
     const baseTopic = document.getElementById('mqtt-topic').value;
     const payload = {
@@ -1119,6 +1452,8 @@ window.logStroke = function(type) {
     document.getElementById('lv-bh').textContent = state.bhCount;
     flashCard('lc-type');
   }
+  // Phyphox remote record
+  phyphoxRecord(type);
 };
 </script>
 </body>
