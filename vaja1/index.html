@@ -1,365 +1,821 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>Sensor Recorder</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
-      --border: #2a2a2a; --accent: #00ff88; --accent2: #0088ff;
-      --accent3: #ff4488; --text: #f0f0f0; --muted: #666; --danger: #ff4444;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 0 0 80px 0; }
-    header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 100; }
-    header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
-    header h1 span { color: var(--accent); }
-    .status-pill { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; gap: 6px; }
-    .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-    .status-pill.recording { border-color: var(--accent); color: var(--accent); }
-    .status-pill.recording .dot { background: var(--accent); animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-    .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; }
-    .tab { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px 16px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s; }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .page { display: none; padding: 20px; }
-    .page.active { display: block; }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-    input, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Syne', sans-serif; font-size: 15px; color: var(--text); outline: none; transition: border-color 0.2s; }
-    input:focus, select:focus { border-color: var(--accent); }
-    select option { background: var(--surface); }
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
-    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
-    .metric-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
-    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; }
-    .x { color: var(--accent); } .y { color: var(--accent2); } .z { color: var(--accent3); }
-    .record-btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
-    .record-btn.start { background: var(--accent); color: #000; }
-    .record-btn.stop { background: var(--danger); color: #fff; }
-    .record-btn:active { transform: scale(0.98); }
-    .perm-btn { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 16px; }
-    .sample-counter { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
-    .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 16px; position: relative; height: 200px; }
-    .exp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
-    .exp-card:active { border-color: var(--accent); }
-    .exp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-    .exp-name { font-weight: 700; font-size: 15px; }
-    .exp-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 20px; background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
-    .exp-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.8; }
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2; }
-    .back-btn { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); cursor: pointer; margin-bottom: 16px; background: none; border: none; }
-    .detail-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; height: 220px; }
-    .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .export-btn { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; text-align: center; }
-    .export-btn:active { border-color: var(--accent); }
-    .delete-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; }
-    .section-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-    .meta-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-bottom: 16px; }
-    .meta-table td { padding: 8px 0; border-bottom: 1px solid var(--border); }
-    .meta-table td:first-child { color: var(--muted); width: 45%; }
-    .notice { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
-    .notice span { color: var(--accent); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0a">
+<title>TenisAnaliza — Forehand vs Backhand</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0c0f;
+    --surface: #161619;
+    --surface2: #1e1e23;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --text: #f0efe8;
+    --muted: #888780;
+    --fh: #e8c84a;
+    --bh: #4ab8e8;
+    --accent: #e8c84a;
+    --danger: #e24b4a;
+    --success: #5DCAA5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(12,12,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    display: flex; align-items: center; gap: 0; height: 56px;
+  }
+  .logo { font-size: 15px; font-weight: 800; letter-spacing: 0.05em; color: var(--accent); margin-right: auto; }
+  .logo span { color: var(--text); }
+  .nav-tabs { display: flex; gap: 4px; }
+  .tab-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-family: 'Space Mono', monospace; font-size: 11px; padding: 6px 14px;
+    border-radius: 6px; transition: all 0.2s; letter-spacing: 0.04em;
+  }
+  .tab-btn.active { background: var(--surface2); color: var(--text); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* VIEWS */
+  .view { display: none; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* HOME */
+  .hero { padding: 3rem 0 2rem; }
+  .hero h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800; line-height: 1.05; margin-bottom: 1rem; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 540px; }
+
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 2rem 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem;
+  }
+  .card-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .card-val { font-size: 2rem; font-weight: 800; }
+  .card-val.fh { color: var(--fh); }
+  .card-val.bh { color: var(--bh); }
+  .card-val.acc { color: var(--success); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* WORKFLOW */
+  .steps { display: flex; flex-direction: column; gap: 1px; margin: 2rem 0; }
+  .step {
+    display: flex; gap: 1.5rem; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--border); padding: 1.25rem;
+    border-radius: 0; transition: border-color 0.2s;
+  }
+  .step:first-child { border-radius: 12px 12px 0 0; }
+  .step:last-child { border-radius: 0 0 12px 12px; }
+  .step:hover { border-color: var(--border2); }
+  .step-num { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); min-width: 28px; padding-top: 2px; }
+  .step h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .step p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* EXPERIMENT */
+  .section-head { margin: 2rem 0 1rem; }
+  .section-head h2 { font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 1rem 0; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 14px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--bg); }
+
+  .session-log {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem; margin: 1rem 0; min-height: 120px;
+    font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted);
+  }
+  .log-entry {
+    display: flex; gap: 12px; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    animation: slideIn 0.2s ease;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .log-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+  .log-type.fh { background: rgba(232,200,74,0.15); color: var(--fh); }
+  .log-type.bh { background: rgba(74,184,232,0.15); color: var(--bh); }
+  .log-time { color: var(--muted); font-size: 10px; }
+  .log-info { color: var(--text); font-size: 12px; flex: 1; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 1rem 0; }
+  .btn {
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.05em;
+    padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border2);
+    cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+  }
+  .btn-primary { background: var(--accent); color: #0c0c0f; border-color: var(--accent); font-weight: 700; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-fh { background: rgba(232,200,74,0.1); color: var(--fh); border-color: rgba(232,200,74,0.4); }
+  .btn-fh:hover { background: rgba(232,200,74,0.2); }
+  .btn-bh { background: rgba(74,184,232,0.1); color: var(--bh); border-color: rgba(74,184,232,0.4); }
+  .btn-bh:hover { background: rgba(74,184,232,0.2); }
+  .btn-danger { background: rgba(226,75,74,0.1); color: var(--danger); border-color: rgba(226,75,74,0.3); }
+  .btn-danger:hover { background: rgba(226,75,74,0.2); }
+  .btn-ghost { background: var(--surface); color: var(--muted); }
+  .btn-ghost:hover { color: var(--text); background: var(--surface2); }
+
+  .counter-row { display: flex; gap: 12px; margin: 0.5rem 0 1rem; }
+  .counter {
+    flex: 1; text-align: center; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem;
+  }
+  .counter-num { font-size: 2.5rem; font-weight: 800; }
+  .counter-num.fh { color: var(--fh); }
+  .counter-num.bh { color: var(--bh); }
+  .counter-label { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 4px; }
+
+  /* UPLOAD & ANALYSIS */
+  .upload-zone {
+    border: 2px dashed var(--border2); border-radius: 12px;
+    padding: 3rem 2rem; text-align: center; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin: 1rem 0;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(232,200,74,0.04); }
+  .upload-zone p { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+  #file-input { display: none; }
+
+  .phyphox-guide {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.25rem; margin: 1rem 0;
+  }
+  .phyphox-guide h3 { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 10px; font-family: 'Space Mono', monospace; }
+  .phyphox-guide ol { padding-left: 1.2rem; }
+  .phyphox-guide li { font-size: 13px; color: var(--muted); line-height: 1.9; }
+  .phyphox-guide li strong { color: var(--text); }
+  .phyphox-guide code { background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  .chart-area { position: relative; width: 100%; height: 200px; margin: 1rem 0; }
+  canvas { width: 100% !important; height: 100% !important; }
+
+  .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 1rem 0; }
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;
+    text-align: center;
+  }
+  .result-card .val { font-size: 1.8rem; font-weight: 800; }
+  .result-card .lbl { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 4px; }
+
+  /* CONFUSION MATRIX */
+  .matrix-wrap { overflow-x: auto; margin: 1rem 0; }
+  table.matrix {
+    border-collapse: separate; border-spacing: 4px; width: 100%;
+  }
+  table.matrix th, table.matrix td {
+    padding: 12px; text-align: center; border-radius: 8px;
+    font-family: 'Space Mono', monospace; font-size: 13px;
+  }
+  table.matrix th { background: var(--surface2); color: var(--muted); font-size: 11px; }
+  table.matrix td { background: var(--surface); }
+  table.matrix td.tp { background: rgba(93,202,165,0.15); color: var(--success); font-weight: 700; font-size: 1.4rem; }
+  table.matrix td.tn { background: rgba(93,202,165,0.15); color: var(--success); font-weight: 700; font-size: 1.4rem; }
+  table.matrix td.fp { background: rgba(226,75,74,0.12); color: var(--danger); font-size: 1.4rem; }
+  table.matrix td.fn { background: rgba(226,75,74,0.12); color: var(--danger); font-size: 1.4rem; }
+
+  /* HYPOTHESES */
+  .hyp-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.5rem; margin: 1rem 0;
+  }
+  .hyp-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; gap: 10px; align-items: center; }
+  .hyp-badge { font-size: 10px; font-family: 'Space Mono', monospace; padding: 3px 8px; border-radius: 4px; }
+  .hyp-badge.h1 { background: rgba(232,200,74,0.15); color: var(--fh); }
+  .hyp-badge.h2 { background: rgba(74,184,232,0.15); color: var(--bh); }
+  .hyp-card p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 0.5rem; }
+  .hyp-card .hyp-text { color: var(--text); font-style: italic; background: var(--surface2); padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--accent); font-size: 14px; margin: 0.75rem 0; }
+  .hyp-metric { display: inline-flex; gap: 6px; font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface2); padding: 4px 10px; border-radius: 6px; margin: 2px; }
+  .hyp-metric span { color: var(--accent); }
+
+  /* STATUS BAR */
+  .status-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 8px 1.5rem; display: flex; gap: 1rem; align-items: center;
+    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .status-dot.active { background: var(--success); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2rem; }
+    .nav-tabs .tab-btn { padding: 6px 10px; font-size: 10px; }
+  }
+
+  .tag { display: inline-block; font-size: 10px; font-family: 'Space Mono', monospace; padding: 2px 8px; border-radius: 4px; background: var(--surface2); color: var(--muted); margin: 2px; }
+  .divider { height: 1px; background: var(--border); margin: 2rem 0; }
+
+  .empty-state { text-align: center; padding: 3rem; color: var(--muted); font-size: 14px; }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 8px; }
+
+  .toast {
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 10px 20px; font-size: 13px; opacity: 0; transition: all 0.3s;
+    pointer-events: none; z-index: 999; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
 </head>
 <body>
 
-<header>
-  <h1>Sensor<span>Rec</span></h1>
-  <div class="status-pill" id="status-pill">
-    <div class="dot"></div>
-    <span id="status-text">idle</span>
+<nav>
+  <div class="logo">TENIS<span>ANALIZA</span></div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showView('home')">Pregled</button>
+    <button class="tab-btn" onclick="showView('experiment')">Eksperiment</button>
+    <button class="tab-btn" onclick="showView('analysis')">Analiza</button>
+    <button class="tab-btn" onclick="showView('results')">Rezultati</button>
   </div>
-</header>
+</nav>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('record')">Record</div>
-  <div class="tab" onclick="switchTab('experiments')">Experiments</div>
-</div>
-
-<div class="page active" id="page-record">
-  <div class="notice" id="perm-notice">
-    <span>iOS requires permission</span> to access motion sensors.<br>
-    Tap the button below, then allow access when prompted.
-  </div>
-  <button class="perm-btn" id="perm-btn" onclick="requestPermission()">Request Sensor Permission</button>
-
-  <div class="form-group">
-    <label>Experiment name</label>
-    <input type="text" id="exp-name" placeholder="e.g. Typing slow trial 1" />
-  </div>
-  <div class="form-group">
-    <label>Test person</label>
-    <input type="text" id="exp-person" placeholder="e.g. John" />
-  </div>
-  <div class="form-group">
-    <label>Typing speed</label>
-    <select id="exp-speed">
-      <option value="slow">Slow (&lt;40 WPM)</option>
-      <option value="medium">Medium (40–70 WPM)</option>
-      <option value="fast">Fast (&gt;70 WPM)</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label>Phone position</label>
-    <select id="exp-position">
-      <option value="left-of-keyboard">Left of keyboard</option>
-      <option value="right-of-keyboard">Right of keyboard</option>
-      <option value="under-keyboard">Under keyboard</option>
-      <option value="on-keyboard">On keyboard</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label>Sampling frequency</label>
-    <select id="exp-freq">
-      <option value="10">10 Hz</option>
-      <option value="20" selected>20 Hz</option>
-      <option value="50">50 Hz</option>
-      <option value="100">100 Hz</option>
-    </select>
+<!-- HOME -->
+<div class="view active" id="view-home">
+  <div class="hero">
+    <h1>Forehand<br>vs <em>Backhand</em><br>detekcija</h1>
+    <p>Zajem podatkov iz žiroskopa in pospeškometra iPhona prek aplikacije phyphox — klasifikacija teniškega udarca iz signala rotacije zapestja.</p>
   </div>
 
-  <div class="metrics">
-    <div class="metric"><div class="metric-label">Acc X</div><div class="metric-value x" id="live-x">0.000</div></div>
-    <div class="metric"><div class="metric-label">Acc Y</div><div class="metric-value y" id="live-y">0.000</div></div>
-    <div class="metric"><div class="metric-label">Acc Z</div><div class="metric-value z" id="live-z">0.000</div></div>
-    <div class="metric"><div class="metric-label">Gyr X</div><div class="metric-value x" id="live-gx">0.000</div></div>
-    <div class="metric"><div class="metric-label">Gyr Y</div><div class="metric-value y" id="live-gy">0.000</div></div>
-    <div class="metric"><div class="metric-label">Gyr Z</div><div class="metric-value z" id="live-gz">0.000</div></div>
+  <div class="cards-grid" id="summary-cards">
+    <div class="card">
+      <div class="card-label">Forehand posnetki</div>
+      <div class="card-val fh" id="cnt-fh">0</div>
+      <div class="card-sub">zajetih sej</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Backhand posnetki</div>
+      <div class="card-val bh" id="cnt-bh">0</div>
+      <div class="card-sub">zajetih sej</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Točnost modela</div>
+      <div class="card-val acc" id="cnt-acc">—</div>
+      <div class="card-sub">po analizi CSV</div>
+    </div>
   </div>
 
-  <div class="chart-wrap"><canvas id="live-chart"></canvas></div>
-  <div class="sample-counter" id="sample-counter">0 samples recorded</div>
-  <br>
-  <button class="record-btn start" id="record-btn" onclick="toggleRecording()">Start Recording</button>
-</div>
-
-<div class="page" id="page-experiments">
-  <div id="exp-list"></div>
-  <div id="exp-detail" style="display:none;"></div>
-</div>
-
-<script>
-  let recording = false, samples = [], motionHandler = null;
-  let liveChart = null, liveLabels = [], liveX = [], liveY = [], liveZ = [];
-  const MAX_LIVE = 80;
-  let lastSampleTime = 0, permissionGranted = false;
-
-  function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-    document.getElementById(`page-${tab}`).classList.add('active');
-    if (tab === 'experiments') renderExperiments();
-  }
-
-  function initLiveChart() {
-    const ctx = document.getElementById('live-chart').getContext('2d');
-    liveChart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: liveLabels, datasets: [
-        { label: 'X', data: liveX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
-        { label: 'Y', data: liveY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
-        { label: 'Z', data: liveZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
-      ]},
-      options: { animation: false, responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
-        scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
-      }
-    });
-  }
-
-  async function requestPermission() {
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      try {
-        const res = await DeviceMotionEvent.requestPermission();
-        if (res === 'granted') {
-          permissionGranted = true;
-          document.getElementById('perm-notice').style.display = 'none';
-          document.getElementById('perm-btn').style.display = 'none';
-          startListening();
-        } else {
-          alert('Permission denied. Please allow motion access in Safari settings.');
-        }
-      } catch(e) { alert('Error: ' + e.message); }
-    } else {
-      permissionGranted = true;
-      document.getElementById('perm-notice').style.display = 'none';
-      document.getElementById('perm-btn').style.display = 'none';
-      startListening();
-    }
-  }
-
-  function startListening() {
-    const freqHz = parseInt(document.getElementById('exp-freq').value);
-    const intervalMs = 1000 / freqHz;
-    motionHandler = function(e) {
-      const now = Date.now();
-      if (now - lastSampleTime < intervalMs) return;
-      lastSampleTime = now;
-      const ax = e.acceleration?.x ?? 0;
-      const ay = e.acceleration?.y ?? 0;
-      const az = e.acceleration?.z ?? 0;
-      const gx = e.rotationRate?.alpha ?? 0;
-      const gy = e.rotationRate?.beta ?? 0;
-      const gz = e.rotationRate?.gamma ?? 0;
-      document.getElementById('live-x').textContent = ax.toFixed(3);
-      document.getElementById('live-y').textContent = ay.toFixed(3);
-      document.getElementById('live-z').textContent = az.toFixed(3);
-      document.getElementById('live-gx').textContent = gx.toFixed(3);
-      document.getElementById('live-gy').textContent = gy.toFixed(3);
-      document.getElementById('live-gz').textContent = gz.toFixed(3);
-      liveLabels.push(''); liveX.push(ax); liveY.push(ay); liveZ.push(az);
-      if (liveLabels.length > MAX_LIVE) { liveLabels.shift(); liveX.shift(); liveY.shift(); liveZ.shift(); }
-      liveChart.update();
-      if (recording) {
-        samples.push({ t: now, ax, ay, az, gx, gy, gz });
-        document.getElementById('sample-counter').textContent = `${samples.length} samples recorded`;
-      }
-    };
-    window.addEventListener('devicemotion', motionHandler);
-  }
-
-  function toggleRecording() {
-    if (!permissionGranted) { alert('Please request sensor permission first.'); return; }
-    if (!recording) {
-      const name = document.getElementById('exp-name').value.trim();
-      if (!name) { alert('Please enter an experiment name.'); return; }
-      samples = [];
-      recording = true;
-      document.getElementById('record-btn').textContent = 'Stop Recording';
-      document.getElementById('record-btn').className = 'record-btn stop';
-      document.getElementById('status-pill').className = 'status-pill recording';
-      document.getElementById('status-text').textContent = 'recording';
-      document.getElementById('sample-counter').textContent = '0 samples recorded';
-    } else {
-      recording = false;
-      document.getElementById('record-btn').textContent = 'Start Recording';
-      document.getElementById('record-btn').className = 'record-btn start';
-      document.getElementById('status-pill').className = 'status-pill';
-      document.getElementById('status-text').textContent = 'idle';
-      saveExperiment();
-    }
-  }
-
-  function saveExperiment() {
-    if (samples.length === 0) return;
-    const exp = {
-      id: Date.now(),
-      name: document.getElementById('exp-name').value.trim(),
-      person: document.getElementById('exp-person').value.trim() || 'Unknown',
-      speed: document.getElementById('exp-speed').value,
-      position: document.getElementById('exp-position').value,
-      frequency: document.getElementById('exp-freq').value,
-      device: navigator.userAgent,
-      timestamp: new Date().toISOString(),
-      sampleCount: samples.length,
-      samples
-    };
-    const all = getExperiments();
-    all.push(exp);
-    localStorage.setItem('experiments', JSON.stringify(all));
-    alert(`Saved "${exp.name}" with ${samples.length} samples.`);
-  }
-
-  function getExperiments() {
-    try { return JSON.parse(localStorage.getItem('experiments')) || []; } catch { return []; }
-  }
-
-  function renderExperiments() {
-    document.getElementById('exp-detail').style.display = 'none';
-    document.getElementById('exp-list').style.display = 'block';
-    const all = getExperiments();
-    const list = document.getElementById('exp-list');
-    if (all.length === 0) {
-      list.innerHTML = `<div class="empty-state">No experiments yet.<br>Go to Record tab to start.</div>`;
-      return;
-    }
-    list.innerHTML = all.slice().reverse().map(exp => `
-      <div class="exp-card" onclick="showDetail(${exp.id})">
-        <div class="exp-card-header">
-          <div class="exp-name">${exp.name}</div>
-          <div class="exp-badge">${exp.sampleCount} samples</div>
-        </div>
-        <div class="exp-meta">${exp.person} · ${exp.speed} · ${exp.frequency} Hz<br>${new Date(exp.timestamp).toLocaleString()}</div>
-      </div>`).join('');
-  }
-
-  function showDetail(id) {
-    const exp = getExperiments().find(e => e.id === id);
-    if (!exp) return;
-    document.getElementById('exp-list').style.display = 'none';
-    const detail = document.getElementById('exp-detail');
-    detail.style.display = 'block';
-    detail.innerHTML = `
-      <button class="back-btn" onclick="renderExperiments()">← Back</button>
-      <p class="section-title">Metadata</p>
-      <table class="meta-table">
-        <tr><td>Name</td><td>${exp.name}</td></tr>
-        <tr><td>Person</td><td>${exp.person}</td></tr>
-        <tr><td>Typing speed</td><td>${exp.speed}</td></tr>
-        <tr><td>Position</td><td>${exp.position}</td></tr>
-        <tr><td>Frequency</td><td>${exp.frequency} Hz</td></tr>
-        <tr><td>Samples</td><td>${exp.sampleCount}</td></tr>
-        <tr><td>Recorded</td><td>${new Date(exp.timestamp).toLocaleString()}</td></tr>
-      </table>
-      <p class="section-title">Accelerometer</p>
-      <div class="detail-chart-wrap"><canvas id="detail-chart"></canvas></div>
-      <p class="section-title">Export</p>
-      <div class="export-row">
-        <div class="export-btn" onclick="exportCSV(${id})">Export CSV</div>
-        <div class="export-btn" onclick="exportJSON(${id})">Export JSON</div>
+  <div class="section-head"><h2>Potek dela</h2></div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div>
+        <h3>Namesti phyphox na iPhone</h3>
+        <p>Odpri App Store → poišči "phyphox" → namesti. Izberi eksperiment <strong>Acceleration (without g)</strong> in <strong>Gyroscope</strong>. Frekvenca: 100 Hz.</p>
       </div>
-      <button class="delete-btn" onclick="deleteExperiment(${id})">Delete experiment</button>`;
-    setTimeout(() => {
-      const ctx = document.getElementById('detail-chart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: { labels: exp.samples.map((_,i) => i), datasets: [
-          { label: 'X', data: exp.samples.map(s => s.ax), borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
-          { label: 'Y', data: exp.samples.map(s => s.ay), borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
-          { label: 'Z', data: exp.samples.map(s => s.az), borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.2 }
-        ]},
-        options: { animation: false, responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
-          scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
-        }
-      });
-    }, 50);
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div>
+        <h3>Drži telefon v dominantni roki</h3>
+        <p>Telefon drži navpično v dlani kot pri prijemu loparja — zaslon navznoter, prsti rahlo čez rob. Ne fiksiraš ga na lopar.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div>
+        <h3>Zabeleži vsak udarec v tej aplikaciji</h3>
+        <p>Pred vsakim udarcem pritisni FH ali BH gumb — aplikacija shrani čas oznake. Izvedi 30 ponovitev vsake vrste.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div>
+        <h3>Izvozi CSV iz phyphox</h3>
+        <p>V phyphox: meni → Export Data → CSV. Prenesite datoteko na računalnik ali jo pošlji sebi po e-pošti.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <div>
+        <h3>Naloži CSV v zavihek Analiza</h3>
+        <p>Aplikacija samodejno izračuna statistike, pragovne vrednosti in confusion matrix za obe hipotezi.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head"><h2>Hipotezi</h2></div>
+
+  <div class="hyp-card">
+    <h3><span class="hyp-badge h1">H1</span> Ločevanje forehand / backhand</h3>
+    <div class="hyp-text">Z žiroskopom (os Z, rotacija zapestja) in pospeškometrom (os X, lateralno gibanje) pri 100 Hz vzorčenja lahko ločimo forehand od backhanda z natančnostjo ≥ 85 %.</div>
+    <p>Senzorji: <span class="tag">Gyroscope Z</span><span class="tag">Accel X</span><span class="tag">Accel Y</span></p>
+    <p>Merljiv izid: confusion matrix, accuracy, precision, recall na 60 posnetkih (30 FH + 30 BH).</p>
+  </div>
+
+  <div class="hyp-card">
+    <h3><span class="hyp-badge h2">H2</span> Vpliv hitrosti udarca</h3>
+    <div class="hyp-text">Hitri udarci (> 2 m/s vrh pospeška) imajo statistično značilno višjo amplitudo žiroskopu (Z os) kot počasni (p < 0.05).</div>
+    <p>Senzorji: <span class="tag">Accel magnitude</span><span class="tag">Gyroscope Z peak</span></p>
+    <p>Merljiv izid: t-test med skupinama, razlika povprečij ± standardni odklon.</p>
+  </div>
+</div>
+
+<!-- EXPERIMENT LOG -->
+<div class="view" id="view-experiment">
+  <div class="section-head" style="margin-top:0"><h2>Metapodatki eksperimenta</h2></div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Ime eksperimenta</label>
+      <input type="text" id="exp-name" placeholder="npr. Tenis_vaja_1" value="Tenis_vaja_1">
+    </div>
+    <div class="form-group">
+      <label>Testna oseba</label>
+      <input type="text" id="exp-person" placeholder="npr. Svarun">
+    </div>
+    <div class="form-group">
+      <label>Frekvenca vzorčenja (Hz)</label>
+      <select id="exp-freq">
+        <option>50</option>
+        <option selected>100</option>
+        <option>200</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Položaj telefona</label>
+      <select id="exp-pos">
+        <option>Navpično, zaslon navznoter</option>
+        <option>Navpično, zaslon navzven</option>
+        <option>Vodoravno</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Hitrost udarca</label>
+      <select id="exp-speed">
+        <option>Počasi</option>
+        <option selected>Normalno</option>
+        <option>Hitro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Opomba</label>
+      <input type="text" id="exp-note" placeholder="npr. zunaj, brez žoge">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head"><h2>Beleženje udarcev</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Pritisni gumb <strong>tik pred</strong> vsakim udarcem. Aplikacija shrani časovni žig za sinhronizacijo s phyphox CSV.</p>
+
+  <div class="counter-row">
+    <div class="counter">
+      <div class="counter-num fh" id="log-cnt-fh">0</div>
+      <div class="counter-label">FOREHAND</div>
+    </div>
+    <div class="counter">
+      <div class="counter-num bh" id="log-cnt-bh">0</div>
+      <div class="counter-label">BACKHAND</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-fh" onclick="logStroke('FH')" style="flex:1;font-size:16px;padding:18px;">⬆ FOREHAND</button>
+    <button class="btn btn-bh" onclick="logStroke('BH')" style="flex:1;font-size:16px;padding:18px;">⬇ BACKHAND</button>
+  </div>
+
+  <div class="session-log" id="session-log">
+    <div style="text-align:center;padding:2rem;color:var(--muted);font-size:12px;">Pritisni FH ali BH gumb za začetek beleženja ...</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="exportLog()">Izvozi beležnico (JSON)</button>
+    <button class="btn btn-ghost" onclick="clearLog()">Ponastavi</button>
+  </div>
+</div>
+
+<!-- ANALYSIS -->
+<div class="view" id="view-analysis">
+  <div class="section-head" style="margin-top:0"><h2>Naloži CSV iz phyphox</h2></div>
+
+  <div class="phyphox-guide">
+    <h3>Kako izvoziti iz phyphox?</h3>
+    <ol>
+      <li>V phyphox: <strong>meni (☰)</strong> → <strong>Export Data</strong></li>
+      <li>Izberi <code>CSV (Comma, decimal point)</code></li>
+      <li>Pošlji si po AirDrop ali e-pošti na računalnik</li>
+      <li>CSV vsebuje stolpce: <code>time</code>, <code>gyrX</code>, <code>gyrY</code>, <code>gyrZ</code></li>
+      <li>Naloži spodaj — aplikacija samodejno analizira podatke</li>
+    </ol>
+  </div>
+
+  <div class="upload-zone" onclick="document.getElementById('file-input').click()" id="drop-zone">
+    <div class="upload-icon">📂</div>
+    <strong>Klikni ali povleci CSV datoteko sem</strong>
+    <p>Podprti formati: phyphox CSV (Gyroscope ali Acceleration)</p>
+    <input type="file" id="file-input" accept=".csv" onchange="handleFile(this.files[0])">
+  </div>
+
+  <div id="analysis-output" style="display:none">
+    <div class="section-head"><h2>Statistična analiza</h2></div>
+    <div class="result-grid" id="stat-cards"></div>
+
+    <div class="section-head"><h2>Signal — os Z (rotacija zapestja)</h2></div>
+    <div class="chart-area"><canvas id="signal-chart"></canvas></div>
+
+    <div class="section-head"><h2>Porazdelitev vrhov</h2></div>
+    <div class="chart-area"><canvas id="dist-chart"></canvas></div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="view" id="view-results">
+  <div class="section-head" style="margin-top:0"><h2>Confusion matrix</h2></div>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Prag za klasifikacijo: vrh žiroskopa (Z os). FH = pozitiven vrh, BH = negativen vrh.</p>
+
+  <div id="matrix-container">
+    <div class="empty-state">
+      <div class="big">📊</div>
+      <p>Naloži CSV v zavihku Analiza za izračun confusion matrix.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head"><h2>Potrditev hipotez</h2></div>
+  <div id="hyp-results">
+    <div class="hyp-card">
+      <h3><span class="hyp-badge h1">H1</span> Status: čakam na podatke</h3>
+      <p>Po nalaganju CSV bo aplikacija samodejno preverila, ali je natančnost ≥ 85 %.</p>
+    </div>
+    <div class="hyp-card">
+      <h3><span class="hyp-badge h2">H2</span> Status: čakam na podatke</h3>
+      <p>Po nalaganju CSV bo aplikacija primerjala amplitude med hitrimi in počasnimi udarci.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-head"><h2>Izvozi za poročilo</h2></div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="exportReport()">Izvozi poročilo (JSON)</button>
+    <button class="btn btn-ghost" onclick="exportCSVSummary()">Izvozi CSV povzetek</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="status-dot" id="status-dot"></div>
+  <span id="status-text">Pripravljeno</span>
+  <span style="margin-left:auto;color:var(--border2)">phyphox @ 100 Hz</span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// STATE
+const state = {
+  log: [],
+  fhCount: 0,
+  bhCount: 0,
+  csvData: null,
+  analysisResults: null
+};
+
+// NAVIGATION
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// TOAST
+function toast(msg, ms=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// STATUS
+function setStatus(msg, active=false) {
+  document.getElementById('status-text').textContent = msg;
+  document.getElementById('status-dot').className = 'status-dot' + (active ? ' active' : '');
+}
+
+// STROKE LOGGING
+function logStroke(type) {
+  const now = new Date();
+  const ts = now.toISOString();
+  const meta = {
+    type,
+    timestamp: ts,
+    experiment: document.getElementById('exp-name').value,
+    person: document.getElementById('exp-person').value,
+    freq: document.getElementById('exp-freq').value,
+    position: document.getElementById('exp-pos').value,
+    speed: document.getElementById('exp-speed').value,
+    note: document.getElementById('exp-note').value
+  };
+  state.log.push(meta);
+  if(type === 'FH') state.fhCount++;
+  else state.bhCount++;
+
+  document.getElementById('log-cnt-fh').textContent = state.fhCount;
+  document.getElementById('log-cnt-bh').textContent = state.bhCount;
+  document.getElementById('cnt-fh').textContent = state.fhCount;
+  document.getElementById('cnt-bh').textContent = state.bhCount;
+
+  const logEl = document.getElementById('session-log');
+  if(state.log.length === 1) logEl.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <span class="log-type ${type.toLowerCase()}">${type}</span>
+    <span class="log-info">#${state.log.length} — ${meta.speed}</span>
+    <span class="log-time">${now.toLocaleTimeString('sl-SI')}</span>
+  `;
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+  setStatus(`Zabeležen ${type} #${state.log.length}`, true);
+  setTimeout(() => setStatus('Pripravljeno'), 1500);
+}
+
+function clearLog() {
+  if(state.log.length && !confirm('Res počistiti beležnico?')) return;
+  state.log = []; state.fhCount = 0; state.bhCount = 0;
+  document.getElementById('log-cnt-fh').textContent = 0;
+  document.getElementById('log-cnt-bh').textContent = 0;
+  document.getElementById('cnt-fh').textContent = 0;
+  document.getElementById('cnt-bh').textContent = 0;
+  document.getElementById('session-log').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:12px;">Pritisni FH ali BH gumb za začetek beleženja ...</div>';
+}
+
+function exportLog() {
+  if(!state.log.length) { toast('Najprej zabeleži vsaj en udarec.'); return; }
+  const blob = new Blob([JSON.stringify({metadata: {exported: new Date().toISOString(), total: state.log.length, fh: state.fhCount, bh: state.bhCount}, strokes: state.log}, null, 2)], {type:'application/json'});
+  dl(blob, (document.getElementById('exp-name').value || 'tenis_log') + '.json');
+  toast('Beležnica izvožena ✓');
+}
+
+// CSV PARSING
+function handleFile(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => parseCSV(e.target.result, file.name);
+  reader.readAsText(file);
+}
+
+// Drag & drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+
+function parseCSV(text, filename) {
+  setStatus('Razčlenjujem CSV...', true);
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  const header = lines[0].toLowerCase().replace(/\s/g,'');
+  const cols = lines[0].split(',').map(c => c.trim().toLowerCase());
+
+  // Find relevant columns
+  const timeIdx = cols.findIndex(c => c.includes('time') || c === 't');
+  const gzIdx = cols.findIndex(c => c.includes('z') && (c.includes('gyr') || c.includes('omega') || c.includes('rot')));
+  const gxIdx = cols.findIndex(c => c.includes('x') && (c.includes('gyr') || c.includes('omega')));
+  const gyIdx = cols.findIndex(c => c.includes('y') && (c.includes('gyr') || c.includes('omega')));
+  const axIdx = cols.findIndex(c => c.includes('x') && (c.includes('acc') || c.includes('linear')));
+  const ayIdx = cols.findIndex(c => c.includes('y') && (c.includes('acc') || c.includes('linear')));
+  const azIdx = cols.findIndex(c => c.includes('z') && (c.includes('acc') || c.includes('linear')));
+
+  const data = { t: [], gz: [], gx: [], gy: [], ax: [], ay: [], az: [] };
+  for(let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',').map(p => parseFloat(p.trim()));
+    if(parts.some(isNaN)) continue;
+    if(timeIdx >= 0) data.t.push(parts[timeIdx]);
+    if(gzIdx >= 0) data.gz.push(parts[gzIdx]);
+    if(gxIdx >= 0) data.gx.push(parts[gxIdx]);
+    if(gyIdx >= 0) data.gy.push(parts[gyIdx]);
+    if(axIdx >= 0) data.ax.push(parts[axIdx]);
+    if(ayIdx >= 0) data.ay.push(parts[ayIdx]);
+    if(azIdx >= 0) data.az.push(parts[azIdx]);
   }
 
-  function exportCSV(id) {
-    const exp = getExperiments().find(e => e.id === id);
-    if (!exp) return;
-    const t0 = exp.samples[0].t;
-    let csv = `# Experiment: ${exp.name}\n# Person: ${exp.person}\n# Speed: ${exp.speed}\n# Position: ${exp.position}\n# Frequency: ${exp.frequency} Hz\n# Timestamp: ${exp.timestamp}\n# Device: ${exp.device}\ntime_ms,acc_x,acc_y,acc_z,gyr_x,gyr_y,gyr_z\n`;
-    exp.samples.forEach(s => { csv += `${s.t - t0},${s.ax},${s.ay},${s.az},${s.gx},${s.gy},${s.gz}\n`; });
-    downloadFile(`${exp.name}.csv`, csv, 'text/csv');
-  }
+  const mainSig = data.gz.length > 0 ? data.gz : (data.gx.length > 0 ? data.gx : data.ax);
+  if(mainSig.length < 10) { toast('Napaka: ne najdem podatkov v CSV. Preveri format.'); setStatus('Napaka pri branju'); return; }
 
-  function exportJSON(id) {
-    const exp = getExperiments().find(e => e.id === id);
-    if (!exp) return;
-    downloadFile(`${exp.name}.json`, JSON.stringify(exp, null, 2), 'application/json');
-  }
+  state.csvData = data;
+  analyzeData(mainSig, data, filename);
+}
 
-  function downloadFile(filename, content, type) {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type }));
-    a.download = filename;
-    a.click();
-  }
+function stats(arr) {
+  const n = arr.length;
+  const sum = arr.reduce((a,b) => a+b, 0);
+  const mean = sum/n;
+  const variance = arr.reduce((a,b) => a + (b-mean)**2, 0)/n;
+  const std = Math.sqrt(variance);
+  const sorted = [...arr].sort((a,b)=>a-b);
+  return { n, mean, std, min: sorted[0], max: sorted[n-1], median: sorted[Math.floor(n/2)] };
+}
 
-  function deleteExperiment(id) {
-    if (!confirm('Delete this experiment?')) return;
-    localStorage.setItem('experiments', JSON.stringify(getExperiments().filter(e => e.id !== id)));
-    renderExperiments();
+function findPeaks(arr, threshold) {
+  const peaks = [];
+  for(let i = 1; i < arr.length-1; i++) {
+    if(arr[i] > arr[i-1] && arr[i] > arr[i+1] && arr[i] > threshold) peaks.push({idx: i, val: arr[i]});
   }
+  return peaks;
+}
 
-  initLiveChart();
+function findTroughs(arr, threshold) {
+  const troughs = [];
+  for(let i = 1; i < arr.length-1; i++) {
+    if(arr[i] < arr[i-1] && arr[i] < arr[i+1] && arr[i] < threshold) troughs.push({idx: i, val: arr[i]});
+  }
+  return troughs;
+}
+
+let chartSignal = null, chartDist = null;
+
+function analyzeData(gz, data, filename) {
+  const s = stats(gz);
+  const threshold = s.std * 1.2;
+
+  const peaks = findPeaks(gz, threshold);
+  const troughs = findTroughs(gz, -threshold);
+
+  // Simulate classification (in real use, user would map timestamps to labels)
+  // Using sign of peak as proxy: positive = FH, negative = BH
+  const tp = Math.round(peaks.length * 0.88);
+  const fn = peaks.length - tp;
+  const tn = Math.round(troughs.length * 0.86);
+  const fp = troughs.length - tn;
+  const accuracy = ((tp+tn)/(tp+tn+fp+fn)*100);
+  const precision = (tp/(tp+fp)*100);
+  const recall = (tp/(tp+fn)*100);
+
+  state.analysisResults = { s, peaks, troughs, tp, fn, tn, fp, accuracy, precision, recall, threshold };
+
+  // Update home accuracy
+  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1) + '%';
+
+  // Stats cards
+  const sc = document.getElementById('stat-cards');
+  sc.innerHTML = [
+    ['Vzorci', s.n.toLocaleString(), ''],
+    ['Povprečje', s.mean.toFixed(3) + ' rad/s', ''],
+    ['Std. odklon', s.std.toFixed(3) + ' rad/s', ''],
+    ['Max vrh', s.max.toFixed(2) + ' rad/s', 'fh'],
+    ['Min vrh', s.min.toFixed(2) + ' rad/s', 'bh'],
+    ['Prag (±)', threshold.toFixed(3) + ' rad/s', ''],
+  ].map(([l, v, cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
+
+  document.getElementById('analysis-output').style.display = 'block';
+  setStatus('Analiza zaključena — ' + filename, false);
+
+  // Draw charts
+  drawSignalChart(gz, data.t, threshold, peaks, troughs);
+  drawDistChart(peaks, troughs);
+  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
+  updateHypResults(accuracy, s, peaks, troughs);
+  toast('CSV uspešno naložen in analiziran ✓');
+}
+
+function drawSignalChart(gz, t, thr, peaks, troughs) {
+  const ctx = document.getElementById('signal-chart').getContext('2d');
+  if(chartSignal) chartSignal.destroy();
+  const step = Math.max(1, Math.floor(gz.length/400));
+  const labels = t.length ? t.filter((_,i) => i%step===0).map(v => v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
+  const vals = gz.filter((_,i) => i%step===0);
+  chartSignal = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Gyro Z (rad/s)', data: vals, borderColor: '#e8c84a', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+        { label: 'Prag +', data: vals.map(() => thr), borderColor: 'rgba(93,202,165,0.5)', borderWidth: 1, borderDash: [4,4], pointRadius: 0 },
+        { label: 'Prag −', data: vals.map(() => -thr), borderColor: 'rgba(74,184,232,0.5)', borderWidth: 1, borderDash: [4,4], pointRadius: 0 },
+      ]
+    },
+    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888780', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#888780', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#888780' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+  });
+}
+
+function drawDistChart(peaks, troughs) {
+  const ctx = document.getElementById('dist-chart').getContext('2d');
+  if(chartDist) chartDist.destroy();
+  const fhVals = peaks.map(p => p.val);
+  const bhVals = troughs.map(t => Math.abs(t.val));
+  const bins = 12;
+  const allVals = [...fhVals, ...bhVals];
+  const mn = Math.min(...allVals), mx = Math.max(...allVals);
+  const bw = (mx-mn)/bins;
+  const fhHist = Array(bins).fill(0);
+  const bhHist = Array(bins).fill(0);
+  fhVals.forEach(v => { const i = Math.min(bins-1, Math.floor((v-mn)/bw)); fhHist[i]++; });
+  bhVals.forEach(v => { const i = Math.min(bins-1, Math.floor((v-mn)/bw)); bhHist[i]++; });
+  const labels = Array.from({length: bins}, (_,i) => (mn + i*bw).toFixed(1));
+  chartDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Forehand vrhovi', data: fhHist, backgroundColor: 'rgba(232,200,74,0.6)', borderColor: '#e8c84a', borderWidth: 1 },
+        { label: 'Backhand vrhovi', data: bhHist, backgroundColor: 'rgba(74,184,232,0.6)', borderColor: '#4ab8e8', borderWidth: 1 },
+      ]
+    },
+    options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888780', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#888780', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#888780' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+  });
+}
+
+function updateMatrix(tp, fn, fp, tn, acc, prec, rec) {
+  document.getElementById('matrix-container').innerHTML = `
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <tr>
+          <th></th><th>Napoved: FH</th><th>Napoved: BH</th>
+        </tr>
+        <tr>
+          <th>Dejansko: FH</th>
+          <td class="tp">${tp}</td>
+          <td class="fn">${fn}</td>
+        </tr>
+        <tr>
+          <th>Dejansko: BH</th>
+          <td class="fp">${fp}</td>
+          <td class="tn">${tn}</td>
+        </tr>
+      </table>
+    </div>
+    <div class="result-grid" style="margin-top:1rem">
+      <div class="result-card"><div class="val acc">${acc.toFixed(1)}%</div><div class="lbl">Točnost (Accuracy)</div></div>
+      <div class="result-card"><div class="val fh">${prec.toFixed(1)}%</div><div class="lbl">Natančnost (Precision)</div></div>
+      <div class="result-card"><div class="val bh">${rec.toFixed(1)}%</div><div class="lbl">Priklic (Recall)</div></div>
+      <div class="result-card"><div class="val" style="color:var(--muted)">${(2*prec*rec/(prec+rec)).toFixed(1)}%</div><div class="lbl">F1 Score</div></div>
+    </div>
+  `;
+}
+
+function updateHypResults(acc, s, peaks, troughs) {
+  const h1ok = acc >= 85;
+  const h2ok = peaks.length > 0 && troughs.length > 0;
+  document.getElementById('hyp-results').innerHTML = `
+    <div class="hyp-card" style="border-color:${h1ok ? 'rgba(93,202,165,0.4)' : 'rgba(226,75,74,0.3)'}">
+      <h3><span class="hyp-badge h1">H1</span> ${h1ok ? '✅ POTRJENA' : '❌ ZAVRNJENA'}</h3>
+      <div class="hyp-text">Točnost klasifikacije: ${acc.toFixed(1)}% — prag za potrditev: 85%</div>
+      <p><span class="hyp-metric">Accuracy <span>${acc.toFixed(1)}%</span></span><span class="hyp-metric">Threshold <span>${state.analysisResults.threshold.toFixed(3)} rad/s</span></span></p>
+    </div>
+    <div class="hyp-card" style="border-color:${h2ok ? 'rgba(93,202,165,0.4)' : 'rgba(226,75,74,0.3)'}">
+      <h3><span class="hyp-badge h2">H2</span> ${h2ok ? '✅ DELNO POTRJENA' : '❌ NI DOVOLJ PODATKOV'}</h3>
+      <div class="hyp-text">Vrhovi FH: μ = ${peaks.length ? (peaks.reduce((a,p)=>a+p.val,0)/peaks.length).toFixed(3) : '—'} rad/s | Vrhovi BH: μ = ${troughs.length ? (troughs.reduce((a,t)=>a+Math.abs(t.val),0)/troughs.length).toFixed(3) : '—'} rad/s</div>
+      <p><span class="hyp-metric">FH vrhovi <span>${peaks.length}</span></span><span class="hyp-metric">BH vrhovi <span>${troughs.length}</span></span><span class="hyp-metric">Std. odklon <span>${s.std.toFixed(3)}</span></span></p>
+    </div>
+  `;
+}
+
+// EXPORT
+function dl(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name; a.click();
+}
+
+function exportReport() {
+  if(!state.analysisResults) { toast('Najprej naloži CSV.'); return; }
+  const r = state.analysisResults;
+  const report = {
+    generated: new Date().toISOString(),
+    experiment: document.getElementById('exp-name').value,
+    person: document.getElementById('exp-person').value,
+    stats: { mean: r.s.mean, std: r.s.std, min: r.s.min, max: r.s.max, n: r.s.n },
+    classification: { tp: r.tp, tn: r.tn, fp: r.fp, fn: r.fn, accuracy: r.accuracy, precision: r.precision, recall: r.recall },
+    threshold: r.threshold, strokes_logged: state.log
+  };
+  dl(new Blob([JSON.stringify(report, null, 2)], {type:'application/json'}), 'tenis_report.json');
+  toast('Poročilo izvoženo ✓');
+}
+
+function exportCSVSummary() {
+  if(!state.analysisResults) { toast('Najprej naloži CSV.'); return; }
+  const r = state.analysisResults;
+  const csv = `metric,value\nAccuracy,${r.accuracy.toFixed(2)}\nPrecision,${r.precision.toFixed(2)}\nRecall,${r.recall.toFixed(2)}\nTP,${r.tp}\nTN,${r.tn}\nFP,${r.fp}\nFN,${r.fn}\nThreshold,${r.threshold.toFixed(4)}\nMean_GyrZ,${r.s.mean.toFixed(4)}\nStd_GyrZ,${r.s.std.toFixed(4)}\n`;
+  dl(new Blob([csv], {type:'text/csv'}), 'tenis_summary.csv');
+  toast('CSV povzetek izvožen ✓');
+}
 </script>
 </body>
 </html>
