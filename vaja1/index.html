@@ -1,1460 +1,373 @@
 <!DOCTYPE html>
-<html lang="sl">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0a0a0a">
-<title>TenisAnaliza — Forehand vs Backhand</title>
-<link rel="manifest" href="manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0c0c0f;
-    --surface: #161619;
-    --surface2: #1e1e23;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.15);
-    --text: #f0efe8;
-    --muted: #888780;
-    --fh: #e8c84a;
-    --bh: #4ab8e8;
-    --accent: #e8c84a;
-    --danger: #e24b4a;
-    --success: #5DCAA5;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* NAV */
-  nav {
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(12,12,15,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    padding: 0 1.5rem;
-    display: flex; align-items: center; gap: 0; height: 56px;
-  }
-  .logo { font-size: 15px; font-weight: 800; letter-spacing: 0.05em; color: var(--accent); margin-right: auto; }
-  .logo span { color: var(--text); }
-  .nav-tabs { display: flex; gap: 4px; }
-  .tab-btn {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-family: 'Space Mono', monospace; font-size: 11px; padding: 6px 14px;
-    border-radius: 6px; transition: all 0.2s; letter-spacing: 0.04em;
-  }
-  .tab-btn.active { background: var(--surface2); color: var(--text); }
-  .tab-btn:hover:not(.active) { color: var(--text); }
-
-  /* VIEWS */
-  .view { display: none; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; }
-  .view.active { display: block; }
-
-  /* HOME */
-  .hero { padding: 3rem 0 2rem; }
-  .hero h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800; line-height: 1.05; margin-bottom: 1rem; }
-  .hero h1 em { font-style: normal; color: var(--accent); }
-  .hero p { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 540px; }
-
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 2rem 0; }
-  .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.25rem;
-  }
-  .card-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
-  .card-val { font-size: 2rem; font-weight: 800; }
-  .card-val.fh { color: var(--fh); }
-  .card-val.bh { color: var(--bh); }
-  .card-val.acc { color: var(--success); }
-  .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-  /* WORKFLOW */
-  .steps { display: flex; flex-direction: column; gap: 1px; margin: 2rem 0; }
-  .step {
-    display: flex; gap: 1.5rem; align-items: flex-start;
-    background: var(--surface); border: 1px solid var(--border); padding: 1.25rem;
-    border-radius: 0; transition: border-color 0.2s;
-  }
-  .step:first-child { border-radius: 12px 12px 0 0; }
-  .step:last-child { border-radius: 0 0 12px 12px; }
-  .step:hover { border-color: var(--border2); }
-  .step-num { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); min-width: 28px; padding-top: 2px; }
-  .step h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-  .step p { font-size: 13px; color: var(--muted); line-height: 1.6; }
-
-  /* EXPERIMENT */
-  .section-head { margin: 2rem 0 1rem; }
-  .section-head h2 { font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 1rem 0; }
-  .form-group { display: flex; flex-direction: column; gap: 6px; }
-  .form-group label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
-  .form-group input, .form-group select {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px 12px; color: var(--text);
-    font-family: 'Syne', sans-serif; font-size: 14px; outline: none;
-    transition: border-color 0.2s;
-  }
-  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
-  .form-group select option { background: var(--bg); }
-
-  .session-log {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 1rem; margin: 1rem 0; min-height: 120px;
-    font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted);
-  }
-  .log-entry {
-    display: flex; gap: 12px; align-items: center;
-    padding: 8px 0; border-bottom: 1px solid var(--border);
-    animation: slideIn 0.2s ease;
-  }
-  .log-entry:last-child { border-bottom: none; }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
-  .log-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
-  .log-type.fh { background: rgba(232,200,74,0.15); color: var(--fh); }
-  .log-type.bh { background: rgba(74,184,232,0.15); color: var(--bh); }
-  .log-time { color: var(--muted); font-size: 10px; }
-  .log-info { color: var(--text); font-size: 12px; flex: 1; }
-
-  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 1rem 0; }
-  .btn {
-    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.05em;
-    padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border2);
-    cursor: pointer; transition: all 0.15s; text-transform: uppercase;
-  }
-  .btn-primary { background: var(--accent); color: #0c0c0f; border-color: var(--accent); font-weight: 700; }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-fh { background: rgba(232,200,74,0.1); color: var(--fh); border-color: rgba(232,200,74,0.4); }
-  .btn-fh:hover { background: rgba(232,200,74,0.2); }
-  .btn-bh { background: rgba(74,184,232,0.1); color: var(--bh); border-color: rgba(74,184,232,0.4); }
-  .btn-bh:hover { background: rgba(74,184,232,0.2); }
-  .btn-danger { background: rgba(226,75,74,0.1); color: var(--danger); border-color: rgba(226,75,74,0.3); }
-  .btn-danger:hover { background: rgba(226,75,74,0.2); }
-  .btn-ghost { background: var(--surface); color: var(--muted); }
-  .btn-ghost:hover { color: var(--text); background: var(--surface2); }
-
-  .counter-row { display: flex; gap: 12px; margin: 0.5rem 0 1rem; }
-  .counter {
-    flex: 1; text-align: center; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 1rem;
-  }
-  .counter-num { font-size: 2.5rem; font-weight: 800; }
-  .counter-num.fh { color: var(--fh); }
-  .counter-num.bh { color: var(--bh); }
-  .counter-label { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 4px; }
-
-  /* UPLOAD & ANALYSIS */
-  .upload-zone {
-    border: 2px dashed var(--border2); border-radius: 12px;
-    padding: 3rem 2rem; text-align: center; cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    margin: 1rem 0;
-  }
-  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(232,200,74,0.04); }
-  .upload-zone p { color: var(--muted); font-size: 14px; margin-top: 8px; }
-  .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
-  #file-input { display: none; }
-
-  .phyphox-guide {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 1.25rem; margin: 1rem 0;
-  }
-  .phyphox-guide h3 { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 10px; font-family: 'Space Mono', monospace; }
-  .phyphox-guide ol { padding-left: 1.2rem; }
-  .phyphox-guide li { font-size: 13px; color: var(--muted); line-height: 1.9; }
-  .phyphox-guide li strong { color: var(--text); }
-  .phyphox-guide code { background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); font-family: 'Space Mono', monospace; }
-
-  .chart-area { position: relative; width: 100%; height: 200px; margin: 1rem 0; }
-  canvas { width: 100% !important; height: 100% !important; }
-
-  .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 1rem 0; }
-  .result-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;
-    text-align: center;
-  }
-  .result-card .val { font-size: 1.8rem; font-weight: 800; }
-  .result-card .lbl { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 4px; }
-
-  /* CONFUSION MATRIX */
-  .matrix-wrap { overflow-x: auto; margin: 1rem 0; }
-  table.matrix {
-    border-collapse: separate; border-spacing: 4px; width: 100%;
-  }
-  table.matrix th, table.matrix td {
-    padding: 12px; text-align: center; border-radius: 8px;
-    font-family: 'Space Mono', monospace; font-size: 13px;
-  }
-  table.matrix th { background: var(--surface2); color: var(--muted); font-size: 11px; }
-  table.matrix td { background: var(--surface); }
-  table.matrix td.tp { background: rgba(93,202,165,0.15); color: var(--success); font-weight: 700; font-size: 1.4rem; }
-  table.matrix td.tn { background: rgba(93,202,165,0.15); color: var(--success); font-weight: 700; font-size: 1.4rem; }
-  table.matrix td.fp { background: rgba(226,75,74,0.12); color: var(--danger); font-size: 1.4rem; }
-  table.matrix td.fn { background: rgba(226,75,74,0.12); color: var(--danger); font-size: 1.4rem; }
-
-  /* HYPOTHESES */
-  .hyp-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 1.5rem; margin: 1rem 0;
-  }
-  .hyp-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; gap: 10px; align-items: center; }
-  .hyp-badge { font-size: 10px; font-family: 'Space Mono', monospace; padding: 3px 8px; border-radius: 4px; }
-  .hyp-badge.h1 { background: rgba(232,200,74,0.15); color: var(--fh); }
-  .hyp-badge.h2 { background: rgba(74,184,232,0.15); color: var(--bh); }
-  .hyp-card p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 0.5rem; }
-  .hyp-card .hyp-text { color: var(--text); font-style: italic; background: var(--surface2); padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--accent); font-size: 14px; margin: 0.75rem 0; }
-  .hyp-metric { display: inline-flex; gap: 6px; font-family: 'Space Mono', monospace; font-size: 11px; background: var(--surface2); padding: 4px 10px; border-radius: 6px; margin: 2px; }
-  .hyp-metric span { color: var(--accent); }
-
-  /* STATUS BAR */
-  .status-bar {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: var(--surface); border-top: 1px solid var(--border);
-    padding: 8px 1.5rem; display: flex; gap: 1rem; align-items: center;
-    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
-  }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-  .status-dot.active { background: var(--success); animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-  /* RESPONSIVE */
-  @media (max-width: 600px) {
-    .form-grid { grid-template-columns: 1fr; }
-    .hero h1 { font-size: 2rem; }
-    .nav-tabs .tab-btn { padding: 6px 10px; font-size: 10px; }
-  }
-
-  .tag { display: inline-block; font-size: 10px; font-family: 'Space Mono', monospace; padding: 2px 8px; border-radius: 4px; background: var(--surface2); color: var(--muted); margin: 2px; }
-  .divider { height: 1px; background: var(--border); margin: 2rem 0; }
-
-  .empty-state { text-align: center; padding: 3rem; color: var(--muted); font-size: 14px; }
-  .empty-state .big { font-size: 2.5rem; margin-bottom: 8px; }
-
-  .toast {
-    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px;
-    padding: 10px 20px; font-size: 13px; opacity: 0; transition: all 0.3s;
-    pointer-events: none; z-index: 999; white-space: nowrap;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* MQTT */
-  .mqtt-indicator {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: 'Space Mono', monospace; font-size: 12px;
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 14px;
-  }
-  .mqtt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); transition: background 0.3s; }
-  .mqtt-dot.connected { background: var(--success); animation: pulse 2s infinite; }
-  .mqtt-dot.connecting { background: var(--fh); animation: pulse 0.6s infinite; }
-
-  .mqtt-log {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 1rem; font-family: 'Space Mono', monospace; font-size: 11px;
-    height: 200px; overflow-y: auto; margin: 1rem 0;
-  }
-  .mqtt-msg { padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
-  .mqtt-msg:last-child { border-bottom: none; }
-  .mqtt-msg .m-time { color: var(--muted); min-width: 70px; }
-  .mqtt-msg .m-topic { color: var(--accent); min-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .mqtt-msg .m-payload { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .mqtt-msg.sys { opacity: 0.5; font-style: italic; }
-
-  .pub-row { display: flex; gap: 8px; align-items: flex-end; margin: 0.5rem 0; }
-  .pub-row .form-group { flex: 1; }
-  .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 1rem 0; }
-  .live-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
-    text-align: center; transition: border-color 0.3s;
-  }
-  .live-card.updated { border-color: rgba(232,200,74,0.5); }
-  .live-card .lv { font-size: 1.4rem; font-weight: 800; font-family: 'Space Mono', monospace; }
-  .live-card .ll { font-size: 10px; color: var(--muted); margin-top: 4px; }
-
-  .grafana-box {
-    background: var(--surface); border: 1px solid rgba(232,200,74,0.2);
-    border-radius: 12px; padding: 1.5rem; margin: 1rem 0;
-  }
-  .grafana-box h3 { color: var(--accent); font-size: 13px; font-family: 'Space Mono', monospace; margin-bottom: 1rem; }
-  .grafana-box pre {
-    background: var(--surface2); border-radius: 8px; padding: 12px;
-    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text);
-    overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0.5rem 0;
-  }
-  .grafana-box p { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 0.5rem 0; }
-  .grafana-box ol { padding-left: 1.2rem; }
-  .grafana-box li { font-size: 13px; color: var(--muted); line-height: 1.9; }
-  .grafana-box li strong { color: var(--text); }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Tenis Zajem</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
+      --border: #2a2a2a; --accent: #00ff88; --accent2: #0088ff;
+      --accent3: #ff4488; --text: #f0f0f0; --muted: #666; --danger: #ff4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 0 0 80px 0; }
+    header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 100; }
+    header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    header h1 span { color: var(--accent); }
+    .status-pill { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .status-pill.recording { border-color: var(--accent); color: var(--accent); }
+    .status-pill.recording .dot { background: var(--accent); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; }
+    .tab { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px 16px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .page { display: none; padding: 20px; }
+    .page.active { display: block; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Syne', sans-serif; font-size: 15px; color: var(--text); outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+    .metric-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; }
+    .x { color: var(--accent); } .y { color: var(--accent2); } .z { color: var(--accent3); }
+    .record-btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+    .record-btn.start { background: var(--accent); color: #000; }
+    .record-btn.stop { background: var(--danger); color: #fff; }
+    .record-btn:active { transform: scale(0.98); }
+    .perm-btn { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 16px; }
+    .sample-counter { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
+    .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 16px; position: relative; height: 200px; }
+    .exp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
+    .exp-card:active { border-color: var(--accent); }
+    .exp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .exp-name { font-weight: 700; font-size: 15px; }
+    .exp-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 20px; background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+    .exp-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.8; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2; }
+    .back-btn { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); cursor: pointer; margin-bottom: 16px; background: none; border: none; }
+    .detail-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; position: relative; height: 220px; }
+    .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .export-btn { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; text-align: center; }
+    .export-btn:active { border-color: var(--accent); }
+    .delete-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; }
+    .section-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .meta-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-bottom: 16px; }
+    .meta-table td { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .meta-table td:first-child { color: var(--muted); width: 45%; }
+    .notice { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+    .notice span { color: var(--accent); }
+  </style>
 </head>
 <body>
 
-<nav>
-  <div class="logo">TENIS<span>ANALIZA</span></div>
-  <div class="nav-tabs">
-    <button class="tab-btn active" onclick="showView('home')">Pregled</button>
-    <button class="tab-btn" onclick="showView('experiment')">Eksperiment</button>
-    <button class="tab-btn" onclick="showView('analysis')">Analiza</button>
-    <button class="tab-btn" onclick="showView('results')">Rezultati</button>
-    <button class="tab-btn" onclick="showView('mqtt')">MQTT</button>
+<header>
+  <h1>Tenis<span>Zajem</span></h1>
+  <div class="status-pill" id="status-pill">
+    <div class="dot"></div>
+    <span id="status-text">idle</span>
   </div>
-</nav>
+</header>
 
-<!-- HOME -->
-<div class="view active" id="view-home">
-  <div class="hero">
-    <h1>Forehand<br>vs <em>Backhand</em><br>detekcija</h1>
-    <p>Zajem podatkov iz žiroskopa in pospeškometra iPhona prek aplikacije phyphox — klasifikacija teniškega udarca iz signala rotacije zapestja.</p>
-  </div>
-
-  <div class="cards-grid" id="summary-cards">
-    <div class="card">
-      <div class="card-label">Forehand posnetki</div>
-      <div class="card-val fh" id="cnt-fh">0</div>
-      <div class="card-sub">zajetih sej</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Backhand posnetki</div>
-      <div class="card-val bh" id="cnt-bh">0</div>
-      <div class="card-sub">zajetih sej</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Točnost modela</div>
-      <div class="card-val acc" id="cnt-acc">—</div>
-      <div class="card-sub">po analizi CSV</div>
-    </div>
-  </div>
-
-  <div class="section-head"><h2>Potek dela</h2></div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">01</div>
-      <div>
-        <h3>Namesti phyphox na iPhone</h3>
-        <p>Odpri App Store → poišči "phyphox" → namesti. Izberi eksperiment <strong>Acceleration (without g)</strong> in <strong>Gyroscope</strong>. Frekvenca: 100 Hz.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">02</div>
-      <div>
-        <h3>Drži telefon v dominantni roki</h3>
-        <p>Telefon drži navpično v dlani kot pri prijemu loparja — zaslon navznoter, prsti rahlo čez rob. Ne fiksiraš ga na lopar.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">03</div>
-      <div>
-        <h3>Zabeleži vsak udarec v tej aplikaciji</h3>
-        <p>Pred vsakim udarcem pritisni FH ali BH gumb — aplikacija shrani čas oznake. Izvedi 30 ponovitev vsake vrste.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">04</div>
-      <div>
-        <h3>Izvozi CSV iz phyphox</h3>
-        <p>V phyphox: meni → Export Data → CSV. Prenesite datoteko na računalnik ali jo pošlji sebi po e-pošti.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">05</div>
-      <div>
-        <h3>Naloži CSV v zavihek Analiza</h3>
-        <p>Aplikacija samodejno izračuna statistike, pragovne vrednosti in confusion matrix za obe hipotezi.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-  <div class="section-head"><h2>Hipotezi</h2></div>
-
-  <div class="hyp-card">
-    <h3><span class="hyp-badge h1">H1</span> Ločevanje forehand / backhand</h3>
-    <div class="hyp-text">Z žiroskopom (os Z, rotacija zapestja) in pospeškometrom (os X, lateralno gibanje) pri 100 Hz vzorčenja lahko ločimo forehand od backhanda z natančnostjo ≥ 85 %.</div>
-    <p>Senzorji: <span class="tag">Gyroscope Z</span><span class="tag">Accel X</span><span class="tag">Accel Y</span></p>
-    <p>Merljiv izid: confusion matrix, accuracy, precision, recall na 60 posnetkih (30 FH + 30 BH).</p>
-  </div>
-
-  <div class="hyp-card">
-    <h3><span class="hyp-badge h2">H2</span> Vpliv hitrosti udarca</h3>
-    <div class="hyp-text">Hitri udarci (> 2 m/s vrh pospeška) imajo statistično značilno višjo amplitudo žiroskopu (Z os) kot počasni (p < 0.05).</div>
-    <p>Senzorji: <span class="tag">Accel magnitude</span><span class="tag">Gyroscope Z peak</span></p>
-    <p>Merljiv izid: t-test med skupinama, razlika povprečij ± standardni odklon.</p>
-  </div>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('record')">Record</div>
+  <div class="tab" onclick="switchTab('experiments')">Experiments</div>
 </div>
 
-<!-- EXPERIMENT LOG -->
-<div class="view" id="view-experiment">
-  <div class="section-head" style="margin-top:0"><h2>Metapodatki eksperimenta</h2></div>
-  <div class="form-grid">
-    <div class="form-group">
-      <label>Ime eksperimenta</label>
-      <input type="text" id="exp-name" placeholder="npr. Tenis_vaja_1" value="Tenis_vaja_1">
-    </div>
-    <div class="form-group">
-      <label>Testna oseba</label>
-      <input type="text" id="exp-person" placeholder="npr. Svarun">
-    </div>
-    <div class="form-group">
-      <label>Frekvenca vzorčenja (Hz)</label>
-      <select id="exp-freq">
-        <option>50</option>
-        <option selected>100</option>
-        <option>200</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Položaj telefona</label>
-      <select id="exp-pos">
-        <option>Navpično, zaslon navznoter</option>
-        <option>Navpično, zaslon navzven</option>
-        <option>Vodoravno</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Hitrost udarca</label>
-      <select id="exp-speed">
-        <option>Počasi</option>
-        <option selected>Normalno</option>
-        <option>Hitro</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Opomba</label>
-      <input type="text" id="exp-note" placeholder="npr. zunaj, brez žoge">
-    </div>
+<div class="page active" id="page-record">
+  <div class="notice" id="perm-notice">
+    <span>iOS requires permission</span> to access motion sensors.<br>
+    Tap the button below, then allow access when prompted.
+  </div>
+  <button class="perm-btn" id="perm-btn" onclick="requestPermission()">Request Sensor Permission</button>
+
+  <div class="form-group">
+    <label>Experiment name</label>
+    <input type="text" id="exp-name" placeholder="e.g. FH_trial_01" />
+  </div>
+  <div class="form-group">
+    <label>Test person</label>
+    <input type="text" id="exp-person" placeholder="e.g. Svarun" />
+  </div>
+  <div class="form-group">
+    <label>Stroke type</label>
+    <select id="exp-speed">
+      <option value="forehand">Forehand</option>
+      <option value="backhand">Backhand</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Stroke speed</label>
+    <select id="exp-position">
+      <option value="slow">Slow</option>
+      <option value="normal" selected>Normal</option>
+      <option value="fast">Fast</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Phone grip</label>
+    <select id="exp-grip">
+      <option value="screen-in">Screen facing inward</option>
+      <option value="screen-out">Screen facing outward</option>
+      <option value="vertical">Vertical</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Sampling frequency</label>
+    <select id="exp-freq">
+      <option value="10">10 Hz</option>
+      <option value="20">20 Hz</option>
+      <option value="50">50 Hz</option>
+      <option value="100" selected>100 Hz</option>
+    </select>
   </div>
 
-  <div class="divider"></div>
-  <div class="section-head"><h2>Phyphox daljinski nadzor</h2></div>
-
-  <div class="phyphox-guide">
-    <h3>Nastavitev (enkrat)</h3>
-    <ol>
-      <li>iPhone in računalnik morata biti na <strong>isti WiFi mreži</strong></li>
-      <li>V phyphox odpri eksperiment <strong>Gyroscope</strong></li>
-      <li>Pritisni <strong>☰ meni → Allow remote access</strong></li>
-      <li>Phyphox pokaže IP naslov, npr. <code>http://192.168.1.5</code> — vnesi ga spodaj</li>
-      <li>Pritisni <strong>Testiraj povezavo</strong></li>
-    </ol>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Acc X</div><div class="metric-value x" id="live-x">0.000</div></div>
+    <div class="metric"><div class="metric-label">Acc Y</div><div class="metric-value y" id="live-y">0.000</div></div>
+    <div class="metric"><div class="metric-label">Acc Z</div><div class="metric-value z" id="live-z">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr X</div><div class="metric-value x" id="live-gx">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr Y</div><div class="metric-value y" id="live-gy">0.000</div></div>
+    <div class="metric"><div class="metric-label">Gyr Z</div><div class="metric-value z" id="live-gz">0.000</div></div>
   </div>
 
-  <div style="display:flex;gap:8px;align-items:flex-end;margin:1rem 0;flex-wrap:wrap">
-    <div class="form-group" style="flex:1;min-width:200px">
-      <label>IP naslov iPhona (phyphox)</label>
-      <input type="text" id="phyphox-ip" placeholder="http://192.168.1.5" value="">
-    </div>
-    <div class="form-group" style="flex:none">
-      <label>Čas snemanja (sek)</label>
-      <input type="number" id="phyphox-duration" value="3" min="1" max="10" style="width:80px">
-    </div>
-    <div class="form-group" style="flex:none">
-      <label style="opacity:0">.</label>
-      <button class="btn btn-ghost" onclick="phyphoxTest()">Testiraj povezavo</button>
-    </div>
-  </div>
-
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
-    <div class="mqtt-indicator">
-      <div class="mqtt-dot" id="phyphox-dot"></div>
-      <span id="phyphox-status">Ni povezave s phyphox</span>
-    </div>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer">
-      <input type="checkbox" id="phyphox-auto" style="width:auto"> Samodejno snemi ob kliku
-    </label>
-  </div>
-
-  <div class="divider"></div>
-  <div class="section-head"><h2>Beleženje udarcev</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Pritisni gumb — aplikacija shrani oznako <strong>in samodejno zažene phyphox</strong> (če je povezan in checkbox označen). En klik = en CSV posnetek.</p>
-
-  <div class="counter-row">
-    <div class="counter">
-      <div class="counter-num fh" id="log-cnt-fh">0</div>
-      <div class="counter-label">FOREHAND</div>
-    </div>
-    <div class="counter">
-      <div class="counter-num bh" id="log-cnt-bh">0</div>
-      <div class="counter-label">BACKHAND</div>
-    </div>
-  </div>
-
-  <div id="phyphox-countdown" style="display:none;text-align:center;padding:1rem;background:var(--surface);border-radius:10px;margin:0.5rem 0;border:1px solid var(--border)">
-    <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:4px">SNEMA SE</div>
-    <div id="phyphox-timer" style="font-size:2.5rem;font-weight:800;color:var(--accent);font-family:'Space Mono',monospace">3</div>
-    <div id="phyphox-recording-type" style="font-size:12px;color:var(--muted)"></div>
-  </div>
-
-  <div class="btn-row">
-    <button class="btn btn-fh" id="btn-fh" onclick="logStroke('FH')" style="flex:1;font-size:16px;padding:18px;">⬆ FOREHAND</button>
-    <button class="btn btn-bh" id="btn-bh" onclick="logStroke('BH')" style="flex:1;font-size:16px;padding:18px;">⬇ BACKHAND</button>
-  </div>
-
-  <div class="session-log" id="session-log">
-    <div style="text-align:center;padding:2rem;color:var(--muted);font-size:12px;">Pritisni FH ali BH gumb za začetek beleženja ...</div>
-  </div>
-
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="exportLog()">Izvozi beležnico (JSON)</button>
-    <button class="btn btn-ghost" onclick="clearLog()">Ponastavi</button>
-  </div>
+  <div class="chart-wrap"><canvas id="live-chart"></canvas></div>
+  <div class="sample-counter" id="sample-counter">0 samples recorded</div>
+  <br>
+  <button class="record-btn start" id="record-btn" onclick="toggleRecording()">Start Recording</button>
 </div>
 
-<!-- ANALYSIS -->
-<div class="view" id="view-analysis">
-  <div class="section-head" style="margin-top:0"><h2>Naloži podatke</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Naloži <strong>oba fajla skupaj</strong> — phyphox CSV in JSON beležnico iz zavihka Eksperiment. Aplikacija samodejno izreže signal ±0.75s okoli vsakega udarca in izdela analizo.</p>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1rem 0">
-    <div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">1 — Phyphox CSV</div>
-      <div class="upload-zone" style="padding:1.5rem 1rem" onclick="document.getElementById('file-csv').click()" id="drop-csv">
-        <div class="upload-icon" style="font-size:1.8rem">📈</div>
-        <strong style="font-size:13px" id="csv-name">Gyroscope.csv</strong>
-        <p style="font-size:12px">phyphox → Export Data → CSV</p>
-        <input type="file" id="file-csv" accept=".csv" onchange="handleCSV(this.files[0])">
-      </div>
-      <div id="csv-ok" style="display:none;font-size:12px;color:var(--success);font-family:'Space Mono',monospace;margin-top:6px">✓ CSV naložen</div>
-    </div>
-    <div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">2 — Beležnica JSON</div>
-      <div class="upload-zone" style="padding:1.5rem 1rem" onclick="document.getElementById('file-json').click()" id="drop-json">
-        <div class="upload-icon" style="font-size:1.8rem">🏷️</div>
-        <strong style="font-size:13px" id="json-name">tenis_log.json</strong>
-        <p style="font-size:12px">Aplikacija → Izvozi beležnico</p>
-        <input type="file" id="file-json" accept=".json" onchange="handleJSON(this.files[0])">
-      </div>
-      <div id="json-ok" style="display:none;font-size:12px;color:var(--success);font-family:'Space Mono',monospace;margin-top:6px">✓ JSON naložen</div>
-    </div>
-  </div>
-
-  <div style="margin:0.5rem 0 1rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <div class="form-group" style="flex:none">
-      <label>Okno okoli udarca (sek ±)</label>
-      <input type="number" id="window-size" value="0.75" min="0.2" max="2" step="0.05" style="width:90px">
-    </div>
-    <div class="form-group" style="flex:none;margin-top:auto">
-      <label style="opacity:0">.</label>
-      <button class="btn btn-primary" onclick="runAnalysis()" id="btn-analyze" disabled>Analiziraj</button>
-    </div>
-    <div id="analyze-hint" style="font-size:12px;color:var(--muted);margin-top:auto;padding-bottom:2px">Naloži oba fajla za aktivacijo</div>
-  </div>
-
-  <div class="phyphox-guide" style="margin:0.5rem 0">
-    <h3>Brez JSON beležnice?</h3>
-    <ol>
-      <li>Naloži samo CSV — aplikacija bo delala brez oznak (samo signal analiza)</li>
-      <li>Ali pa pojdi v zavihek <strong>Eksperiment</strong> → pritisni <strong>Izvozi beležnico</strong></li>
-    </ol>
-  </div>
-
-  <div id="analysis-output" style="display:none">
-    <div class="section-head"><h2>Izrezani udarci</h2></div>
-    <div class="result-grid" id="stroke-summary"></div>
-
-    <div class="section-head"><h2>Cel signal z oznakami</h2></div>
-    <div class="chart-area" style="height:220px"><canvas id="signal-chart"></canvas></div>
-
-    <div class="section-head"><h2>Statistična analiza</h2></div>
-    <div class="result-grid" id="stat-cards"></div>
-
-    <div class="section-head"><h2>Porazdelitev vrhov — FH vs BH</h2></div>
-    <div class="chart-area"><canvas id="dist-chart"></canvas></div>
-  </div>
+<div class="page" id="page-experiments">
+  <div id="exp-list"></div>
+  <div id="exp-detail" style="display:none;"></div>
 </div>
 
-<!-- RESULTS -->
-<div class="view" id="view-results">
-  <div class="section-head" style="margin-top:0"><h2>Confusion matrix</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Prag za klasifikacijo: vrh žiroskopa (Z os). FH = pozitiven vrh, BH = negativen vrh.</p>
-
-  <div id="matrix-container">
-    <div class="empty-state">
-      <div class="big">📊</div>
-      <p>Naloži CSV v zavihku Analiza za izračun confusion matrix.</p>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-  <div class="section-head"><h2>Potrditev hipotez</h2></div>
-  <div id="hyp-results">
-    <div class="hyp-card">
-      <h3><span class="hyp-badge h1">H1</span> Status: čakam na podatke</h3>
-      <p>Po nalaganju CSV bo aplikacija samodejno preverila, ali je natančnost ≥ 85 %.</p>
-    </div>
-    <div class="hyp-card">
-      <h3><span class="hyp-badge h2">H2</span> Status: čakam na podatke</h3>
-      <p>Po nalaganju CSV bo aplikacija primerjala amplitude med hitrimi in počasnimi udarci.</p>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-  <div class="section-head"><h2>Izvozi za poročilo</h2></div>
-  <div class="btn-row">
-    <button class="btn btn-primary" onclick="exportReport()">Izvozi poročilo (JSON)</button>
-    <button class="btn btn-ghost" onclick="exportCSVSummary()">Izvozi CSV povzetek</button>
-  </div>
-</div>
-
-<!-- MQTT -->
-<div class="view" id="view-mqtt">
-  <div class="section-head" style="margin-top:0"><h2>MQTT odjemalec</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Poveži se na javni broker prek WebSocket in objavljaj podatke udarcev v realnem času. Deluje direktno v brskalniku — ni treba nič namestiti.</p>
-
-  <div class="form-grid">
-    <div class="form-group">
-      <label>Broker (WebSocket URL)</label>
-      <select id="mqtt-broker-preset" onchange="mqttPresetChange()">
-        <option value="wss://broker.hivemq.com:8884/mqtt">HiveMQ (javni, TLS)</option>
-        <option value="ws://broker.hivemq.com:8000/mqtt">HiveMQ (javni, brez TLS)</option>
-        <option value="wss://broker.emqx.io:8084/mqtt">EMQX (javni, TLS)</option>
-        <option value="ws://broker.emqx.io:8083/mqtt">EMQX (javni, brez TLS)</option>
-        <option value="custom">Po meri (Raspberry Pi ...)</option>
-      </select>
-    </div>
-    <div class="form-group" id="custom-url-group" style="display:none">
-      <label>URL po meri</label>
-      <input type="text" id="mqtt-custom-url" placeholder="ws://192.168.1.x:9001/mqtt">
-    </div>
-    <div class="form-group">
-      <label>Topic (osnova)</label>
-      <input type="text" id="mqtt-topic" value="tenis/vaja1">
-    </div>
-    <div class="form-group">
-      <label>Client ID</label>
-      <input type="text" id="mqtt-clientid" value="">
-    </div>
-    <div class="form-group">
-      <label>Uporabniško ime (opcijsko)</label>
-      <input type="text" id="mqtt-user" placeholder="pusti prazno za javni broker">
-    </div>
-    <div class="form-group">
-      <label>Geslo (opcijsko)</label>
-      <input type="password" id="mqtt-pass" placeholder="pusti prazno za javni broker">
-    </div>
-  </div>
-
-  <div style="display:flex;gap:12px;align-items:center;margin:1rem 0;flex-wrap:wrap">
-    <div class="mqtt-indicator">
-      <div class="mqtt-dot" id="mqtt-dot"></div>
-      <span id="mqtt-status-text">Ni povezave</span>
-    </div>
-    <button class="btn btn-primary" id="btn-mqtt-connect" onclick="mqttConnect()">Poveži</button>
-    <button class="btn btn-danger" id="btn-mqtt-disconnect" onclick="mqttDisconnect()" style="display:none">Prekini</button>
-    <button class="btn btn-ghost" onclick="mqttClearLog()">Počisti dnevnik</button>
-  </div>
-
-  <div class="section-head"><h2>Podatki v živo</h2></div>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:0.5rem;">Ko je MQTT povzan, vsak klik FH/BH v zavihku Eksperiment samodejno objavi sporočilo. Lahko tudi ročno objavi spodaj.</p>
-
-  <div class="live-grid">
-    <div class="live-card" id="lc-type"><div class="lv" id="lv-type">—</div><div class="ll">Zadnji udarec</div></div>
-    <div class="live-card" id="lc-count"><div class="lv" id="lv-count">0</div><div class="ll">Skupaj objav</div></div>
-    <div class="live-card" id="lc-fh"><div class="lv fh" id="lv-fh">0</div><div class="ll">Forehand</div></div>
-    <div class="live-card" id="lc-bh"><div class="lv bh" id="lv-bh">0</div><div class="ll">Backhand</div></div>
-  </div>
-
-  <div class="section-head"><h2>Ročna objava</h2></div>
-  <div class="pub-row">
-    <div class="form-group" style="flex:2">
-      <label>Topic</label>
-      <input type="text" id="pub-topic" placeholder="npr. tenis/vaja1/test">
-    </div>
-    <div class="form-group" style="flex:3">
-      <label>Sporočilo (payload)</label>
-      <input type="text" id="pub-payload" placeholder='npr. {"tip":"FH","cas":"12:00:00"}'>
-    </div>
-    <div class="form-group" style="flex:none">
-      <label style="opacity:0">.</label>
-      <button class="btn btn-primary" onclick="mqttPublishManual()">Objavi</button>
-    </div>
-  </div>
-
-  <div class="section-head"><h2>Dnevnik sporočil</h2></div>
-  <div class="mqtt-log" id="mqtt-log">
-    <div class="mqtt-msg sys"><span class="m-time">—</span><span class="m-topic">sistem</span><span class="m-payload">MQTT dnevnik — čakam na sporočila ...</span></div>
-  </div>
-
-  <div class="divider"></div>
-
-  <div class="grafana-box">
-    <h3>📊 Grafana vizualizacija (5 točk)</h3>
-    <p>Za prikaz v Grafani namesti <strong>Grafana MQTT Data Source</strong> vtičnik in poveži na isti broker. Podatki se objavljajo kot JSON:</p>
-    <pre id="grafana-example">{"tip":"FH","cas":"2026-05-23T10:00:00Z","eksperiment":"Tenis_vaja_1","oseba":"Svarun","hitrost":"Normalno","fh_skupaj":5,"bh_skupaj":3}</pre>
-    <p>Navodila za namestitev:</p>
-    <ol>
-      <li>Namesti Grafana: <strong>grafana.com/grafana/download</strong> (Windows/macOS/Linux)</li>
-      <li>Namesti vtičnik: <code>grafana-cli plugins install grafana-mqtt-datasource</code></li>
-      <li>V Grafana: <strong>Configuration → Data Sources → Add → MQTT</strong></li>
-      <li>URI: <code id="grafana-broker-uri">wss://broker.hivemq.com:8884</code></li>
-      <li>Topic filter: <code id="grafana-topic-filter">tenis/vaja1/#</code></li>
-      <li>Ustvari dashboard → Add panel → Query: <strong>tip, fh_skupaj, bh_skupaj</strong></li>
-    </ol>
-  </div>
-</div>
-
-<div class="status-bar">
-  <div class="status-dot" id="status-dot"></div>
-  <span id="status-text">Pripravljeno</span>
-  <span style="margin-left:auto;color:var(--border2)">phyphox @ 100 Hz</span>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
-// STATE
-const state = {
-  log: [],
-  fhCount: 0,
-  bhCount: 0,
-  csvData: null,
-  analysisResults: null
-};
-
-// NAVIGATION
-function showView(id) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-' + id).classList.add('active');
-  event.target.classList.add('active');
-}
-
-// TOAST
-function toast(msg, ms=2500) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), ms);
-}
-
-// STATUS
-function setStatus(msg, active=false) {
-  document.getElementById('status-text').textContent = msg;
-  document.getElementById('status-dot').className = 'status-dot' + (active ? ' active' : '');
-}
-
-// STROKE LOGGING
-function logStroke(type) {
-  const now = new Date();
-  const ts = now.toISOString();
-  const meta = {
-    type,
-    timestamp: ts,
-    experiment: document.getElementById('exp-name').value,
-    person: document.getElementById('exp-person').value,
-    freq: document.getElementById('exp-freq').value,
-    position: document.getElementById('exp-pos').value,
-    speed: document.getElementById('exp-speed').value,
-    note: document.getElementById('exp-note').value
-  };
-  state.log.push(meta);
-  if(type === 'FH') state.fhCount++;
-  else state.bhCount++;
-
-  document.getElementById('log-cnt-fh').textContent = state.fhCount;
-  document.getElementById('log-cnt-bh').textContent = state.bhCount;
-  document.getElementById('cnt-fh').textContent = state.fhCount;
-  document.getElementById('cnt-bh').textContent = state.bhCount;
-
-  const logEl = document.getElementById('session-log');
-  if(state.log.length === 1) logEl.innerHTML = '';
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.innerHTML = `
-    <span class="log-type ${type.toLowerCase()}">${type}</span>
-    <span class="log-info">#${state.log.length} — ${meta.speed}</span>
-    <span class="log-time">${now.toLocaleTimeString('sl-SI')}</span>
-  `;
-  logEl.appendChild(entry);
-  logEl.scrollTop = logEl.scrollHeight;
-  setStatus(`Zabeležen ${type} #${state.log.length}`, true);
-  setTimeout(() => setStatus('Pripravljeno'), 1500);
-}
-
-function clearLog() {
-  if(state.log.length && !confirm('Res počistiti beležnico?')) return;
-  state.log = []; state.fhCount = 0; state.bhCount = 0;
-  document.getElementById('log-cnt-fh').textContent = 0;
-  document.getElementById('log-cnt-bh').textContent = 0;
-  document.getElementById('cnt-fh').textContent = 0;
-  document.getElementById('cnt-bh').textContent = 0;
-  document.getElementById('session-log').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted);font-size:12px;">Pritisni FH ali BH gumb za začetek beleženja ...</div>';
-}
-
-function exportLog() {
-  if(!state.log.length) { toast('Najprej zabeleži vsaj en udarec.'); return; }
-  const blob = new Blob([JSON.stringify({metadata: {exported: new Date().toISOString(), total: state.log.length, fh: state.fhCount, bh: state.bhCount}, strokes: state.log}, null, 2)], {type:'application/json'});
-  dl(blob, (document.getElementById('exp-name').value || 'tenis_log') + '.json');
-  toast('Beležnica izvožena ✓');
-}
-
-// ─── FILE LOADING ─────────────────────────────────────────────────────────────
-let loadedCSV = null;
-let loadedJSON = null;
-
-function handleCSV(file) {
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    loadedCSV = parseCSVRaw(e.target.result);
-    if(loadedCSV) {
-      document.getElementById('csv-ok').style.display = 'block';
-      document.getElementById('csv-name').textContent = file.name;
-      checkBothLoaded();
-    }
-  };
-  reader.readAsText(file);
-}
-
-function handleJSON(file) {
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      loadedJSON = JSON.parse(e.target.result);
-      document.getElementById('json-ok').style.display = 'block';
-      document.getElementById('json-name').textContent = file.name;
-      checkBothLoaded();
-      toast('JSON beležnica naložena ✓');
-    } catch(err) { toast('Napaka: neveljaven JSON fajl.'); }
-  };
-  reader.readAsText(file);
-}
-
-function checkBothLoaded() {
-  const btn = document.getElementById('btn-analyze');
-  const hint = document.getElementById('analyze-hint');
-  if(loadedCSV) {
-    btn.disabled = false;
-    hint.textContent = loadedJSON
-      ? `✓ Oba fajla naložena — ${loadedJSON.strokes?.length || 0} udarcev v beležnici`
-      : 'CSV naložen — brez JSON beležnice (samo signal analiza)';
-  }
-}
-
-function parseCSVRaw(text) {
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  if(lines.length < 2) { toast('CSV je prazen.'); return null; }
-  const cols = lines[0].split(',').map(c => c.trim().toLowerCase());
-  const timeIdx = cols.findIndex(c => c.includes('time') || c === 't');
-  const gzIdx   = cols.findIndex(c => c.includes('z') && (c.includes('gyr') || c.includes('omega') || c.includes('rot')));
-  const gxIdx   = cols.findIndex(c => c.includes('x') && (c.includes('gyr') || c.includes('omega')));
-  const axIdx   = cols.findIndex(c => c.includes('x') && (c.includes('acc') || c.includes('linear')));
-  const ayIdx   = cols.findIndex(c => c.includes('y') && (c.includes('acc') || c.includes('linear')));
-  const azIdx   = cols.findIndex(c => c.includes('z') && (c.includes('acc') || c.includes('linear')));
-  const data = { t:[], gz:[], gx:[], ax:[], ay:[], az:[] };
-  for(let i = 1; i < lines.length; i++) {
-    const p = lines[i].split(',').map(v => parseFloat(v.trim()));
-    if(p.some(isNaN)) continue;
-    if(timeIdx>=0) data.t.push(p[timeIdx]);
-    if(gzIdx>=0)   data.gz.push(p[gzIdx]);
-    if(gxIdx>=0)   data.gx.push(p[gxIdx]);
-    if(axIdx>=0)   data.ax.push(p[axIdx]);
-    if(ayIdx>=0)   data.ay.push(p[ayIdx]);
-    if(azIdx>=0)   data.az.push(p[azIdx]);
-  }
-  const mainSig = data.gz.length>0 ? data.gz : (data.gx.length>0 ? data.gx : data.ax);
-  if(mainSig.length < 10) { toast('Ne najdem signala v CSV. Preveri format.'); return null; }
-  data.main = mainSig;
-  toast('CSV naložen — ' + mainSig.length + ' vzorcev ✓');
-  return data;
-}
-
-// ─── MAIN ANALYSIS ────────────────────────────────────────────────────────────
-function runAnalysis() {
-  if(!loadedCSV) { toast('Naloži CSV najprej.'); return; }
-  const data = loadedCSV;
-  const gz = data.main;
-  const t = data.t;
-  const win = parseFloat(document.getElementById('window-size').value) || 0.75;
-
-  setStatus('Analiziram ...', true);
-
-  // If we have timestamps and JSON labels — do windowed per-stroke analysis
-  if(loadedJSON && loadedJSON.strokes && t.length > 0) {
-    analyzeWithLabels(gz, t, loadedJSON.strokes, win);
-  } else {
-    // No labels — just signal analysis
-    analyzeSignalOnly(gz, t);
-  }
-}
-
-// ── With labels: cut windows around each stroke ────────────────────────────
-function analyzeWithLabels(gz, t, strokes, win) {
-  // phyphox time is relative (seconds from start of recording)
-  // our timestamps are ISO strings — compute offset from first stroke vs t[0]
-  // We assume recording started before first button press
-  // t[0] = 0s in phyphox, first stroke timestamp = some ISO string
-  // User should start phyphox BEFORE pressing any button
-  // We align: first stroke = some offset into the CSV
-
-  // Extract per-stroke windows
-  const fhPeaks = [], bhPeaks = [];
-  const strokeWindows = [];
-
-  // Find the time offset: we don't know absolute start time of phyphox
-  // So we use relative times within the session
-  // Convert ISO timestamps to seconds-since-first-stroke
-  const strokeTimes = strokes.map(s => new Date(s.timestamp).getTime() / 1000);
-  const firstStroke = strokeTimes[0];
-  const relStrokeTimes = strokeTimes.map(s => s - firstStroke);
-
-  // Map CSV time to relative: assume first stroke happened at t_offset seconds into CSV
-  // We find t_offset by finding the best alignment (default: assume first stroke at t[0])
-  // Simple approach: first stroke aligns with t=0 in relative time
-  const tOffset = t[0] || 0;
-
-  let tp=0, fn=0, fp=0, tn=0;
-
-  strokes.forEach((stroke, i) => {
-    const strokeRelT = relStrokeTimes[i];
-    // Find CSV index closest to this time
-    const targetT = tOffset + strokeRelT;
-    let closest = 0;
-    let minDiff = Infinity;
-    for(let j=0; j<t.length; j++) {
-      const d = Math.abs(t[j] - targetT);
-      if(d < minDiff) { minDiff = d; closest = j; }
-    }
-    // Extract window
-    const fs = t.length > 1 ? Math.round(1/(t[1]-t[0])) : 100; // estimated sample rate
-    const halfWin = Math.round(win * fs);
-    const iStart = Math.max(0, closest - halfWin);
-    const iEnd   = Math.min(gz.length-1, closest + halfWin);
-    const window = gz.slice(iStart, iEnd+1);
-    if(window.length < 3) return;
-
-    const wMax = Math.max(...window);
-    const wMin = Math.min(...window);
-    const wPeak = Math.abs(wMax) > Math.abs(wMin) ? wMax : wMin;
-    const predicted = wPeak > 0 ? 'FH' : 'BH';
-    const actual = stroke.type || stroke.tip;
-
-    strokeWindows.push({ idx: closest, type: actual, predicted, peak: wPeak, iStart, iEnd });
-
-    if(actual === 'FH') { fhPeaks.push(wMax); predicted==='FH' ? tp++ : fn++; }
-    else                { bhPeaks.push(Math.abs(wMin)); predicted==='BH' ? tn++ : fp++; }
-  });
-
-  const total = tp+tn+fp+fn;
-  if(total === 0) { toast('Ni udarcev za analizo.'); return; }
-
-  const accuracy  = (tp+tn)/total*100;
-  const precision = tp+fp > 0 ? tp/(tp+fp)*100 : 0;
-  const recall    = tp+fn > 0 ? tp/(tp+fn)*100 : 0;
-
-  const allPeaks = fhPeaks.concat(bhPeaks);
-  const s = stats(gz);
-  const threshold = s.std * 1.2;
-
-  state.analysisResults = { s, fhPeaks, bhPeaks, tp, fn, tn, fp, accuracy, precision, recall, threshold, strokeWindows };
-  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1)+'%';
-
-  renderStrokeSummary(strokeWindows, fhPeaks, bhPeaks);
-  drawSignalWithLabels(gz, t, strokeWindows, threshold);
-  drawStatCards(s, threshold, fhPeaks, bhPeaks);
-  drawDistChartLabeled(fhPeaks, bhPeaks);
-  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
-  updateHypResults(accuracy, s, {length: fhPeaks.length}, {length: bhPeaks.length});
-
-  document.getElementById('analysis-output').style.display = 'block';
-  setStatus(`Analiza z oznakami — ${strokeWindows.length} udarcev`, false);
-  toast(`Analizirano ${strokeWindows.length} udarcev ✓`);
-}
-
-// ── Without labels: pure signal analysis ──────────────────────────────────
-function analyzeSignalOnly(gz, t) {
-  const s = stats(gz);
-  const threshold = s.std * 1.2;
-  const peaks   = findPeaks(gz, threshold);
-  const troughs = findTroughs(gz, -threshold);
-
-  const fhPeaks = peaks.map(p => p.val);
-  const bhPeaks = troughs.map(p => Math.abs(p.val));
-
-  const tp = Math.round(peaks.length * 0.88);
-  const fn = peaks.length - tp;
-  const tn = Math.round(troughs.length * 0.86);
-  const fp = troughs.length - tn;
-  const accuracy  = (tp+tn)/(tp+tn+fp+fn)*100;
-  const precision = tp/(tp+fp)*100;
-  const recall    = tp/(tp+fn)*100;
-
-  state.analysisResults = { s, fhPeaks, bhPeaks, tp, fn, tn, fp, accuracy, precision, recall, threshold };
-  document.getElementById('cnt-acc').textContent = accuracy.toFixed(1)+'%';
-
-  document.getElementById('stroke-summary').innerHTML =
-    `<div class="result-card" style="grid-column:1/-1"><div class="val" style="color:var(--muted);font-size:1rem">Brez JSON beležnice — klasifikacija temelji na predznaku vrhov signala</div></div>`;
-
-  drawSignalChart(gz, t, threshold, peaks, troughs);
-  drawStatCards(s, threshold, fhPeaks, bhPeaks);
-  drawDistChartLabeled(fhPeaks, bhPeaks);
-  updateMatrix(tp, fn, fp, tn, accuracy, precision, recall);
-  updateHypResults(accuracy, s, peaks, troughs);
-
-  document.getElementById('analysis-output').style.display = 'block';
-  setStatus('Analiza signala (brez oznak)', false);
-  toast('Signal analiziran ✓');
-}
-
-// ─── RENDER HELPERS ────────────────────────────────────────────────────────────
-function renderStrokeSummary(windows, fhPeaks, bhPeaks) {
-  const fhMean = fhPeaks.length ? (fhPeaks.reduce((a,b)=>a+b,0)/fhPeaks.length) : 0;
-  const bhMean = bhPeaks.length ? (bhPeaks.reduce((a,b)=>a+b,0)/bhPeaks.length) : 0;
-  const correct = windows.filter(w => w.type === w.predicted).length;
-  document.getElementById('stroke-summary').innerHTML = [
-    ['Skupaj udarcev', windows.length, ''],
-    ['Forehand', fhPeaks.length, 'fh'],
-    ['Backhand', bhPeaks.length, 'bh'],
-    ['Pravilno klasif.', correct + '/' + windows.length, 'acc'],
-    ['Povpr. vrh FH', fhMean.toFixed(2)+' rad/s', 'fh'],
-    ['Povpr. vrh BH', bhMean.toFixed(2)+' rad/s', 'bh'],
-  ].map(([l,v,cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
-}
-
-function drawStatCards(s, threshold, fhPeaks, bhPeaks) {
-  document.getElementById('stat-cards').innerHTML = [
-    ['Vzorci', s.n.toLocaleString(), ''],
-    ['Povprečje', s.mean.toFixed(3)+' rad/s', ''],
-    ['Std. odklon', s.std.toFixed(3)+' rad/s', ''],
-    ['Max vrh (FH)', s.max.toFixed(2)+' rad/s', 'fh'],
-    ['Min vrh (BH)', s.min.toFixed(2)+' rad/s', 'bh'],
-    ['Prag (±)', threshold.toFixed(3)+' rad/s', ''],
-  ].map(([l,v,cls]) => `<div class="result-card"><div class="val ${cls}">${v}</div><div class="lbl">${l}</div></div>`).join('');
-}
-
-function drawSignalWithLabels(gz, t, windows, thr) {
-  const ctx = document.getElementById('signal-chart').getContext('2d');
-  if(chartSignal) chartSignal.destroy();
-  const step = Math.max(1, Math.floor(gz.length/500));
-  const labels = t.length ? t.filter((_,i)=>i%step===0).map(v=>v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
-  const vals   = gz.filter((_,i)=>i%step===0);
-
-  // Build annotation points for each stroke
-  const fhPoints = Array(vals.length).fill(null);
-  const bhPoints = Array(vals.length).fill(null);
-  windows.forEach(w => {
-    const si = Math.floor(w.idx/step);
-    if(si < vals.length) {
-      if(w.type==='FH') fhPoints[si] = gz[w.idx];
-      else              bhPoints[si] = gz[w.idx];
-    }
-  });
-
-  chartSignal = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [
-      { label: 'Gyro Z', data: vals, borderColor:'#e8c84a', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false },
-      { label: 'Prag +', data: vals.map(()=>thr),  borderColor:'rgba(93,202,165,0.4)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
-      { label: 'Prag −', data: vals.map(()=>-thr), borderColor:'rgba(74,184,232,0.4)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
-      { label: 'FH oznaka', data: fhPoints, borderColor:'#e8c84a', backgroundColor:'#e8c84a', pointRadius:7, pointStyle:'triangle', showLine:false },
-      { label: 'BH oznaka', data: bhPoints, borderColor:'#4ab8e8', backgroundColor:'#4ab8e8', pointRadius:7, pointStyle:'rectRot', showLine:false },
-    ]},
-    options:{ animation:false, responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{ color:'#888780', font:{size:11} } } },
-      scales:{ x:{ ticks:{color:'#888780',maxTicksLimit:8}, grid:{color:'rgba(255,255,255,0.05)'} },
-               y:{ ticks:{color:'#888780'}, grid:{color:'rgba(255,255,255,0.05)'} } } }
-  });
-}
-
-function stats(arr) {
-  const n = arr.length;
-  const sum = arr.reduce((a,b)=>a+b,0);
-  const mean = sum/n;
-  const variance = arr.reduce((a,b)=>a+(b-mean)**2,0)/n;
-  const std = Math.sqrt(variance);
-  const sorted = [...arr].sort((a,b)=>a-b);
-  return { n, mean, std, min:sorted[0], max:sorted[n-1], median:sorted[Math.floor(n/2)] };
-}
-
-function findPeaks(arr, threshold) {
-  const peaks = [];
-  for(let i=1;i<arr.length-1;i++)
-    if(arr[i]>arr[i-1] && arr[i]>arr[i+1] && arr[i]>threshold) peaks.push({idx:i,val:arr[i]});
-  return peaks;
-}
-
-function findTroughs(arr, threshold) {
-  const troughs = [];
-  for(let i=1;i<arr.length-1;i++)
-    if(arr[i]<arr[i-1] && arr[i]<arr[i+1] && arr[i]<threshold) troughs.push({idx:i,val:arr[i]});
-  return troughs;
-}
-
-let chartSignal = null, chartDist = null;
-
-function drawSignalChart(gz, t, thr, peaks, troughs) {
-  const ctx = document.getElementById('signal-chart').getContext('2d');
-  if(chartSignal) chartSignal.destroy();
-  const step = Math.max(1, Math.floor(gz.length/400));
-  const labels = t.length ? t.filter((_,i)=>i%step===0).map(v=>v.toFixed(2)) : gz.filter((_,i)=>i%step===0).map((_,i)=>i*step);
-  const vals = gz.filter((_,i)=>i%step===0);
-  chartSignal = new Chart(ctx, {
-    type:'line',
-    data:{ labels, datasets:[
-      { label:'Gyro Z (rad/s)', data:vals, borderColor:'#e8c84a', borderWidth:1.5, pointRadius:0, tension:0.3, fill:false },
-      { label:'Prag +', data:vals.map(()=>thr),  borderColor:'rgba(93,202,165,0.5)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
-      { label:'Prag −', data:vals.map(()=>-thr), borderColor:'rgba(74,184,232,0.5)', borderWidth:1, borderDash:[4,4], pointRadius:0 },
-    ]},
-    options:{ animation:false, responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{color:'#888780',font:{size:11}} } },
-      scales:{ x:{ticks:{color:'#888780',maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.05)'}},
-               y:{ticks:{color:'#888780'},grid:{color:'rgba(255,255,255,0.05)'}} } }
-  });
-}
-
-function drawDistChartLabeled(fhVals, bhVals) {
-  const ctx = document.getElementById('dist-chart').getContext('2d');
-  if(chartDist) chartDist.destroy();
-  if(!fhVals.length && !bhVals.length) return;
-  const bins = 12;
-  const allVals = [...fhVals, ...bhVals];
-  const mn = Math.min(...allVals), mx = Math.max(...allVals);
-  const bw = (mx-mn)/bins || 1;
-  const fhH = Array(bins).fill(0), bhH = Array(bins).fill(0);
-  fhVals.forEach(v=>{ const i=Math.min(bins-1,Math.floor((v-mn)/bw)); fhH[i]++; });
-  bhVals.forEach(v=>{ const i=Math.min(bins-1,Math.floor((v-mn)/bw)); bhH[i]++; });
-  const lbls = Array.from({length:bins},(_,i)=>(mn+i*bw).toFixed(1));
-  chartDist = new Chart(ctx, {
-    type:'bar',
-    data:{ labels:lbls, datasets:[
-      { label:'Forehand vrhovi', data:fhH, backgroundColor:'rgba(232,200,74,0.6)', borderColor:'#e8c84a', borderWidth:1 },
-      { label:'Backhand vrhovi', data:bhH, backgroundColor:'rgba(74,184,232,0.6)', borderColor:'#4ab8e8', borderWidth:1 },
-    ]},
-    options:{ animation:false, responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{color:'#888780',font:{size:11}} } },
-      scales:{ x:{ticks:{color:'#888780',maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.05)'}},
-               y:{ticks:{color:'#888780'},grid:{color:'rgba(255,255,255,0.05)'}} } }
-  });
-}
-
-
-function updateMatrix(tp, fn, fp, tn, acc, prec, rec) {
-  document.getElementById('matrix-container').innerHTML = `
-    <div class="matrix-wrap">
-      <table class="matrix">
-        <tr>
-          <th></th><th>Napoved: FH</th><th>Napoved: BH</th>
-        </tr>
-        <tr>
-          <th>Dejansko: FH</th>
-          <td class="tp">${tp}</td>
-          <td class="fn">${fn}</td>
-        </tr>
-        <tr>
-          <th>Dejansko: BH</th>
-          <td class="fp">${fp}</td>
-          <td class="tn">${tn}</td>
-        </tr>
-      </table>
-    </div>
-    <div class="result-grid" style="margin-top:1rem">
-      <div class="result-card"><div class="val acc">${acc.toFixed(1)}%</div><div class="lbl">Točnost (Accuracy)</div></div>
-      <div class="result-card"><div class="val fh">${prec.toFixed(1)}%</div><div class="lbl">Natančnost (Precision)</div></div>
-      <div class="result-card"><div class="val bh">${rec.toFixed(1)}%</div><div class="lbl">Priklic (Recall)</div></div>
-      <div class="result-card"><div class="val" style="color:var(--muted)">${(2*prec*rec/(prec+rec)).toFixed(1)}%</div><div class="lbl">F1 Score</div></div>
-    </div>
-  `;
-}
-
-function updateHypResults(acc, s, peaks, troughs) {
-  const h1ok = acc >= 85;
-  const h2ok = peaks.length > 0 && troughs.length > 0;
-  document.getElementById('hyp-results').innerHTML = `
-    <div class="hyp-card" style="border-color:${h1ok ? 'rgba(93,202,165,0.4)' : 'rgba(226,75,74,0.3)'}">
-      <h3><span class="hyp-badge h1">H1</span> ${h1ok ? '✅ POTRJENA' : '❌ ZAVRNJENA'}</h3>
-      <div class="hyp-text">Točnost klasifikacije: ${acc.toFixed(1)}% — prag za potrditev: 85%</div>
-      <p><span class="hyp-metric">Accuracy <span>${acc.toFixed(1)}%</span></span><span class="hyp-metric">Threshold <span>${state.analysisResults.threshold.toFixed(3)} rad/s</span></span></p>
-    </div>
-    <div class="hyp-card" style="border-color:${h2ok ? 'rgba(93,202,165,0.4)' : 'rgba(226,75,74,0.3)'}">
-      <h3><span class="hyp-badge h2">H2</span> ${h2ok ? '✅ DELNO POTRJENA' : '❌ NI DOVOLJ PODATKOV'}</h3>
-      <div class="hyp-text">Vrhovi FH: μ = ${peaks.length ? (peaks.reduce((a,p)=>a+p.val,0)/peaks.length).toFixed(3) : '—'} rad/s | Vrhovi BH: μ = ${troughs.length ? (troughs.reduce((a,t)=>a+Math.abs(t.val),0)/troughs.length).toFixed(3) : '—'} rad/s</div>
-      <p><span class="hyp-metric">FH vrhovi <span>${peaks.length}</span></span><span class="hyp-metric">BH vrhovi <span>${troughs.length}</span></span><span class="hyp-metric">Std. odklon <span>${s.std.toFixed(3)}</span></span></p>
-    </div>
-  `;
-}
-
-// EXPORT
-function dl(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name; a.click();
-}
-
-function exportReport() {
-  if(!state.analysisResults) { toast('Najprej naloži CSV.'); return; }
-  const r = state.analysisResults;
-  const report = {
-    generated: new Date().toISOString(),
-    experiment: document.getElementById('exp-name').value,
-    person: document.getElementById('exp-person').value,
-    stats: { mean: r.s.mean, std: r.s.std, min: r.s.min, max: r.s.max, n: r.s.n },
-    classification: { tp: r.tp, tn: r.tn, fp: r.fp, fn: r.fn, accuracy: r.accuracy, precision: r.precision, recall: r.recall },
-    threshold: r.threshold, strokes_logged: state.log
-  };
-  dl(new Blob([JSON.stringify(report, null, 2)], {type:'application/json'}), 'tenis_report.json');
-  toast('Poročilo izvoženo ✓');
-}
-
-function exportCSVSummary() {
-  if(!state.analysisResults) { toast('Najprej naloži CSV.'); return; }
-  const r = state.analysisResults;
-  const csv = `metric,value\nAccuracy,${r.accuracy.toFixed(2)}\nPrecision,${r.precision.toFixed(2)}\nRecall,${r.recall.toFixed(2)}\nTP,${r.tp}\nTN,${r.tn}\nFP,${r.fp}\nFN,${r.fn}\nThreshold,${r.threshold.toFixed(4)}\nMean_GyrZ,${r.s.mean.toFixed(4)}\nStd_GyrZ,${r.s.std.toFixed(4)}\n`;
-  dl(new Blob([csv], {type:'text/csv'}), 'tenis_summary.csv');
-  toast('CSV povzetek izvožen ✓');
-}
-
-// ─── PHYPHOX REMOTE CONTROL ──────────────────────────────────────────────────
-let phyphoxConnected = false;
-let phyphoxBusy = false;
-
-function phyphoxUrl() {
-  let ip = document.getElementById('phyphox-ip').value.trim();
-  if(!ip) return null;
-  if(!ip.startsWith('http')) ip = 'http://' + ip;
-  return ip;
-}
-
-function phyphoxSetStatus(ok, msg) {
-  phyphoxConnected = ok;
-  const dot = document.getElementById('phyphox-dot');
-  dot.className = 'mqtt-dot' + (ok ? ' connected' : '');
-  document.getElementById('phyphox-status').textContent = msg;
-}
-
-async function phyphoxCmd(cmd) {
-  const base = phyphoxUrl();
-  if(!base) return false;
-  try {
-    await fetch(`${base}/control?cmd=${cmd}`, { mode: 'no-cors' });
-    return true;
-  } catch(e) { return false; }
-}
-
-async function phyphoxTest() {
-  const base = phyphoxUrl();
-  if(!base) { toast('Vnesi IP naslov phyphox-a.'); return; }
-  phyphoxSetStatus(false, 'Testiram ...');
-  try {
-    // no-cors: ne moremo brat response, a fetch ne vrže napake če je server dosegljiv
-    await fetch(`${base}/control?cmd=stop`, { mode: 'no-cors' });
-    phyphoxSetStatus(true, 'Povezan — ' + base);
-    toast('Phyphox dosegljiv ✓');
-  } catch(e) {
-    phyphoxSetStatus(false, 'Napaka: server ni dosegljiv');
-    toast('Ne morem doseči phyphox. Preveri IP in WiFi.');
-  }
-}
-
-async function phyphoxRecord(type) {
-  if(phyphoxBusy) return;
-  const auto = document.getElementById('phyphox-auto').checked;
-  if(!auto || !phyphoxConnected) return;
-
-  const duration = parseInt(document.getElementById('phyphox-duration').value) || 3;
-  phyphoxBusy = true;
-
-  // Disable buttons during recording
-  document.getElementById('btn-fh').disabled = true;
-  document.getElementById('btn-bh').disabled = true;
-
-  // Clear & start
-  await phyphoxCmd('clear');
-  await phyphoxCmd('start');
-
-  // Show countdown
-  const countdownEl = document.getElementById('phyphox-countdown');
-  const timerEl = document.getElementById('phyphox-timer');
-  const typeEl = document.getElementById('phyphox-recording-type');
-  countdownEl.style.display = 'block';
-  typeEl.textContent = type === 'FH' ? 'FOREHAND' : 'BACKHAND';
-
-  for(let i = duration; i > 0; i--) {
-    timerEl.textContent = i;
-    timerEl.style.color = i <= 1 ? 'var(--danger)' : 'var(--accent)';
-    await new Promise(r => setTimeout(r, 1000));
+  let recording = false, samples = [], motionHandler = null;
+  let liveChart = null, liveLabels = [], liveX = [], liveY = [], liveZ = [];
+  const MAX_LIVE = 80;
+  let lastSampleTime = 0, permissionGranted = false;
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById(`page-${tab}`).classList.add('active');
+    if (tab === 'experiments') renderExperiments();
   }
 
-  // Stop
-  await phyphoxCmd('stop');
-  countdownEl.style.display = 'none';
-
-  document.getElementById('btn-fh').disabled = false;
-  document.getElementById('btn-bh').disabled = false;
-  phyphoxBusy = false;
-
-  toast(`Posnetek ${type} shranjen — izvozi CSV iz phyphox ✓`);
-  setStatus('Phyphox posnetek zaključen', false);
-}
-
-// ─── ORIGINAL LOGSTROKE (override at bottom) ──────────────────────────────
-
-let mqttClient = null;
-let mqttPubCount = 0;
-
-function mqttPresetChange() {
-  const sel = document.getElementById('mqtt-broker-preset').value;
-  document.getElementById('custom-url-group').style.display = sel === 'custom' ? 'flex' : 'none';
-  document.getElementById('grafana-broker-uri').textContent =
-    sel === 'custom' ? (document.getElementById('mqtt-custom-url').value || 'ws://...') :
-    sel.replace('/mqtt','');
-}
-
-function mqttBrokerUrl() {
-  const preset = document.getElementById('mqtt-broker-preset').value;
-  return preset === 'custom' ? document.getElementById('mqtt-custom-url').value : preset;
-}
-
-function mqttSetStatus(state, msg) {
-  const dot = document.getElementById('mqtt-dot');
-  dot.className = 'mqtt-dot' + (state === 'connected' ? ' connected' : state === 'connecting' ? ' connecting' : '');
-  document.getElementById('mqtt-status-text').textContent = msg;
-  setStatus('MQTT: ' + msg, state === 'connected');
-}
-
-function mqttLog(topic, payload, isSys) {
-  const log = document.getElementById('mqtt-log');
-  const entry = document.createElement('div');
-  entry.className = 'mqtt-msg' + (isSys ? ' sys' : '');
-  const t = new Date().toLocaleTimeString('sl-SI');
-  entry.innerHTML = `<span class="m-time">${t}</span><span class="m-topic">${topic}</span><span class="m-payload">${payload}</span>`;
-  log.appendChild(entry);
-  if(log.children.length > 100) log.removeChild(log.firstChild);
-  log.scrollTop = log.scrollHeight;
-}
-
-function mqttConnect() {
-  const url = mqttBrokerUrl();
-  if(!url) { toast('Vnesi URL brokerja.'); return; }
-
-  const clientId = document.getElementById('mqtt-clientid').value ||
-    'tenis_' + Math.random().toString(36).substr(2,6);
-  document.getElementById('mqtt-clientid').value = clientId;
-
-  mqttSetStatus('connecting', 'Povezujem ...');
-  mqttLog('sistem', 'Vzpostavljam povezavo: ' + url, true);
-
-  const opts = { clientId, clean: true, reconnectPeriod: 0, connectTimeout: 10000 };
-  const user = document.getElementById('mqtt-user').value;
-  const pass = document.getElementById('mqtt-pass').value;
-  if(user) { opts.username = user; opts.password = pass; }
-
-  try {
-    mqttClient = mqtt.connect(url, opts);
-  } catch(e) {
-    mqttSetStatus('error', 'Napaka: ' + e.message);
-    toast('MQTT napaka: ' + e.message); return;
-  }
-
-  mqttClient.on('connect', () => {
-    mqttSetStatus('connected', 'Povezan — ' + new URL(url).hostname);
-    mqttLog('sistem', '✓ Uspešno povezan na ' + url, true);
-    document.getElementById('btn-mqtt-connect').style.display = 'none';
-    document.getElementById('btn-mqtt-disconnect').style.display = '';
-    const baseTopic = document.getElementById('mqtt-topic').value;
-    document.getElementById('pub-topic').value = baseTopic + '/udarec';
-    document.getElementById('grafana-topic-filter').textContent = baseTopic + '/#';
-    mqttClient.subscribe(baseTopic + '/#', err => {
-      if(!err) mqttLog('sistem', 'Naročen na: ' + baseTopic + '/#', true);
-    });
-    toast('MQTT povezan ✓');
-  });
-
-  mqttClient.on('message', (topic, message) => {
-    mqttLog(topic, message.toString(), false);
-    // parse and update live cards
-    try {
-      const d = JSON.parse(message.toString());
-      if(d.tip) {
-        flashCard('lc-type'); document.getElementById('lv-type').textContent = d.tip;
-        if(d.fh_skupaj !== undefined) { flashCard('lc-fh'); document.getElementById('lv-fh').textContent = d.fh_skupaj; }
-        if(d.bh_skupaj !== undefined) { flashCard('lc-bh'); document.getElementById('lv-bh').textContent = d.bh_skupaj; }
+  function initLiveChart() {
+    const ctx = document.getElementById('live-chart').getContext('2d');
+    liveChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: liveLabels, datasets: [
+        { label: 'X', data: liveX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+        { label: 'Y', data: liveY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+        { label: 'Z', data: liveZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
+      ]},
+      options: { animation: false, responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
+        scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
       }
-    } catch(e) {}
-  });
-
-  mqttClient.on('error', err => {
-    mqttSetStatus('', 'Napaka: ' + err.message);
-    mqttLog('sistem', '✗ ' + err.message, true);
-    toast('MQTT napaka: ' + err.message);
-  });
-
-  mqttClient.on('close', () => {
-    mqttSetStatus('', 'Prekinjena');
-    document.getElementById('btn-mqtt-connect').style.display = '';
-    document.getElementById('btn-mqtt-disconnect').style.display = 'none';
-    mqttLog('sistem', 'Povezava prekinjena', true);
-  });
-}
-
-function mqttDisconnect() {
-  if(mqttClient) { mqttClient.end(); mqttClient = null; }
-}
-
-function mqttPublish(topic, payload) {
-  if(!mqttClient || !mqttClient.connected) return false;
-  mqttClient.publish(topic, typeof payload === 'string' ? payload : JSON.stringify(payload), { qos: 0, retain: false });
-  mqttPubCount++;
-  flashCard('lc-count');
-  document.getElementById('lv-count').textContent = mqttPubCount;
-  return true;
-}
-
-function mqttPublishManual() {
-  const topic = document.getElementById('pub-topic').value;
-  const payload = document.getElementById('pub-payload').value;
-  if(!topic || !payload) { toast('Vnesi topic in sporočilo.'); return; }
-  if(!mqttClient || !mqttClient.connected) { toast('Najprej se poveži na MQTT broker.'); return; }
-  mqttPublish(topic, payload);
-  mqttLog(topic, payload, false);
-  toast('Objavljeno ✓');
-}
-
-function mqttClearLog() {
-  document.getElementById('mqtt-log').innerHTML =
-    '<div class="mqtt-msg sys"><span class="m-time">—</span><span class="m-topic">sistem</span><span class="m-payload">Dnevnik počiščen</span></div>';
-}
-
-function flashCard(id) {
-  const el = document.getElementById(id);
-  el.classList.add('updated');
-  setTimeout(() => el.classList.remove('updated'), 800);
-}
-
-// Hook into logStroke so every stroke also publishes via MQTT and triggers phyphox
-const _origLogStroke = logStroke;
-window.logStroke = function(type) {
-  if(phyphoxBusy) return; // ignore tap during recording
-  _origLogStroke(type);
-  // MQTT publish
-  if(mqttClient && mqttClient.connected) {
-    const baseTopic = document.getElementById('mqtt-topic').value;
-    const payload = {
-      tip: type,
-      cas: new Date().toISOString(),
-      eksperiment: document.getElementById('exp-name').value,
-      oseba: document.getElementById('exp-person').value,
-      hitrost: document.getElementById('exp-speed').value,
-      fh_skupaj: state.fhCount,
-      bh_skupaj: state.bhCount
-    };
-    mqttPublish(baseTopic + '/udarec', payload);
-    document.getElementById('lv-type').textContent = type;
-    document.getElementById('lv-fh').textContent = state.fhCount;
-    document.getElementById('lv-bh').textContent = state.bhCount;
-    flashCard('lc-type');
+    });
   }
-  // Phyphox remote record
-  phyphoxRecord(type);
-};
+
+  async function requestPermission() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res === 'granted') {
+          permissionGranted = true;
+          document.getElementById('perm-notice').style.display = 'none';
+          document.getElementById('perm-btn').style.display = 'none';
+          startListening();
+        } else {
+          alert('Permission denied. Please allow motion access in Safari settings.');
+        }
+      } catch(e) { alert('Error: ' + e.message); }
+    } else {
+      permissionGranted = true;
+      document.getElementById('perm-notice').style.display = 'none';
+      document.getElementById('perm-btn').style.display = 'none';
+      startListening();
+    }
+  }
+
+  function startListening() {
+    const freqHz = parseInt(document.getElementById('exp-freq').value);
+    const intervalMs = 1000 / freqHz;
+    motionHandler = function(e) {
+      const now = Date.now();
+      if (now - lastSampleTime < intervalMs) return;
+      lastSampleTime = now;
+      const ax = e.acceleration?.x ?? 0;
+      const ay = e.acceleration?.y ?? 0;
+      const az = e.acceleration?.z ?? 0;
+      const gx = e.rotationRate?.alpha ?? 0;
+      const gy = e.rotationRate?.beta ?? 0;
+      const gz = e.rotationRate?.gamma ?? 0;
+      document.getElementById('live-x').textContent = ax.toFixed(3);
+      document.getElementById('live-y').textContent = ay.toFixed(3);
+      document.getElementById('live-z').textContent = az.toFixed(3);
+      document.getElementById('live-gx').textContent = gx.toFixed(3);
+      document.getElementById('live-gy').textContent = gy.toFixed(3);
+      document.getElementById('live-gz').textContent = gz.toFixed(3);
+      liveLabels.push(''); liveX.push(ax); liveY.push(ay); liveZ.push(az);
+      if (liveLabels.length > MAX_LIVE) { liveLabels.shift(); liveX.shift(); liveY.shift(); liveZ.shift(); }
+      liveChart.update();
+      if (recording) {
+        samples.push({ t: now, ax, ay, az, gx, gy, gz });
+        document.getElementById('sample-counter').textContent = `${samples.length} samples recorded`;
+      }
+    };
+    window.addEventListener('devicemotion', motionHandler);
+  }
+
+  function toggleRecording() {
+    if (!permissionGranted) { alert('Please request sensor permission first.'); return; }
+    if (!recording) {
+      const name = document.getElementById('exp-name').value.trim();
+      if (!name) { alert('Please enter an experiment name.'); return; }
+      samples = [];
+      recording = true;
+      document.getElementById('record-btn').textContent = 'Stop Recording';
+      document.getElementById('record-btn').className = 'record-btn stop';
+      document.getElementById('status-pill').className = 'status-pill recording';
+      document.getElementById('status-text').textContent = 'recording';
+      document.getElementById('sample-counter').textContent = '0 samples recorded';
+    } else {
+      recording = false;
+      document.getElementById('record-btn').textContent = 'Start Recording';
+      document.getElementById('record-btn').className = 'record-btn start';
+      document.getElementById('status-pill').className = 'status-pill';
+      document.getElementById('status-text').textContent = 'idle';
+      saveExperiment();
+    }
+  }
+
+  function saveExperiment() {
+    if (samples.length === 0) return;
+    const exp = {
+      id: Date.now(),
+      name: document.getElementById('exp-name').value.trim(),
+      person: document.getElementById('exp-person').value.trim() || 'Unknown',
+      strokeType: document.getElementById('exp-speed').value,
+      strokeSpeed: document.getElementById('exp-position').value,
+      grip: document.getElementById('exp-grip').value,
+      frequency: document.getElementById('exp-freq').value,
+      device: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      sampleCount: samples.length,
+      samples
+    };
+    const all = getExperiments();
+    all.push(exp);
+    localStorage.setItem('experiments', JSON.stringify(all));
+    alert(`Saved "${exp.name}" with ${samples.length} samples.`);
+  }
+
+  function getExperiments() {
+    try { return JSON.parse(localStorage.getItem('experiments')) || []; } catch { return []; }
+  }
+
+  function renderExperiments() {
+    document.getElementById('exp-detail').style.display = 'none';
+    document.getElementById('exp-list').style.display = 'block';
+    const all = getExperiments();
+    const list = document.getElementById('exp-list');
+    if (all.length === 0) {
+      list.innerHTML = `<div class="empty-state">No experiments yet.<br>Go to Record tab to start.</div>`;
+      return;
+    }
+    list.innerHTML = all.slice().reverse().map(exp => `
+      <div class="exp-card" onclick="showDetail(${exp.id})">
+        <div class="exp-card-header">
+          <div class="exp-name">${exp.name}</div>
+          <div class="exp-badge">${exp.strokeType?.toUpperCase() || '—'}</div>
+        </div>
+        <div class="exp-meta">${exp.person} · ${exp.strokeSpeed || ''} · ${exp.frequency} Hz<br>${new Date(exp.timestamp).toLocaleString()}</div>
+      </div>`).join('');
+  }
+
+  function showDetail(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    document.getElementById('exp-list').style.display = 'none';
+    const detail = document.getElementById('exp-detail');
+    detail.style.display = 'block';
+    detail.innerHTML = `
+      <button class="back-btn" onclick="renderExperiments()">← Back</button>
+      <p class="section-title">Metadata</p>
+      <table class="meta-table">
+        <tr><td>Name</td><td>${exp.name}</td></tr>
+        <tr><td>Person</td><td>${exp.person}</td></tr>
+        <tr><td>Stroke type</td><td>${exp.strokeType}</td></tr>
+        <tr><td>Stroke speed</td><td>${exp.strokeSpeed}</td></tr>
+        <tr><td>Phone grip</td><td>${exp.grip}</td></tr>
+        <tr><td>Frequency</td><td>${exp.frequency} Hz</td></tr>
+        <tr><td>Samples</td><td>${exp.sampleCount}</td></tr>
+        <tr><td>Recorded</td><td>${new Date(exp.timestamp).toLocaleString()}</td></tr>
+      </table>
+      <p class="section-title">Accelerometer</p>
+      <div class="detail-chart-wrap"><canvas id="detail-chart"></canvas></div>
+      <p class="section-title">Export</p>
+      <div class="export-row">
+        <div class="export-btn" onclick="exportCSV(${id})">Export CSV</div>
+        <div class="export-btn" onclick="exportJSON(${id})">Export JSON</div>
+      </div>
+      <button class="delete-btn" onclick="deleteExperiment(${id})">Delete experiment</button>`;
+    setTimeout(() => {
+      const ctx = document.getElementById('detail-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels: exp.samples.map((_,i) => i), datasets: [
+          { label: 'X', data: exp.samples.map(s => s.ax), borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+          { label: 'Y', data: exp.samples.map(s => s.ay), borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+          { label: 'Z', data: exp.samples.map(s => s.az), borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.2 }
+        ]},
+        options: { animation: false, responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
+          scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
+        }
+      });
+    }, 50);
+  }
+
+  function exportCSV(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    const t0 = exp.samples[0].t;
+    let csv = `# Experiment: ${exp.name}\n# Person: ${exp.person}\n# Stroke type: ${exp.strokeType}\n# Stroke speed: ${exp.strokeSpeed}\n# Phone grip: ${exp.grip}\n# Frequency: ${exp.frequency} Hz\n# Timestamp: ${exp.timestamp}\n# Device: ${exp.device}\ntime_ms,acc_x,acc_y,acc_z,gyr_x,gyr_y,gyr_z\n`;
+    exp.samples.forEach(s => { csv += `${s.t - t0},${s.ax},${s.ay},${s.az},${s.gx},${s.gy},${s.gz}\n`; });
+    downloadFile(`${exp.name}.csv`, csv, 'text/csv');
+  }
+
+  function exportJSON(id) {
+    const exp = getExperiments().find(e => e.id === id);
+    if (!exp) return;
+    downloadFile(`${exp.name}.json`, JSON.stringify(exp, null, 2), 'application/json');
+  }
+
+  function downloadFile(filename, content, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = filename;
+    a.click();
+  }
+
+  function deleteExperiment(id) {
+    if (!confirm('Delete this experiment?')) return;
+    localStorage.setItem('experiments', JSON.stringify(getExperiments().filter(e => e.id !== id)));
+    renderExperiments();
+  }
+
+  initLiveChart();
 </script>
 </body>
 </html>
