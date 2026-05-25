@@ -148,6 +148,12 @@
   <div id="exp-detail" style="display:none;"></div>
 </div>
 
+<!-- floating import button -->
+<div style="position:fixed;bottom:20px;right:20px;z-index:200">
+  <input type="file" id="import-file" accept=".json,.csv" style="display:none" onchange="importFile(this.files[0])">
+  <button class="perm-btn" style="margin:0;width:auto;padding:12px 20px" onclick="document.getElementById('import-file').click()">+ Import</button>
+</div>
+
 <script>
   let recording = false, samples = [], motionHandler = null;
   let liveChart = null, liveLabels = [], liveX = [], liveY = [], liveZ = [];
@@ -372,6 +378,76 @@
     if (!confirm('Delete this experiment?')) return;
     localStorage.setItem('experiments', JSON.stringify(getExperiments().filter(e => e.id !== id)));
     renderExperiments();
+  }
+
+  function importFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (file.name.endsWith('.json')) {
+        importJSON(e.target.result, file.name);
+      } else if (file.name.endsWith('.csv')) {
+        importCSV(e.target.result, file.name);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function importJSON(text, filename) {
+    try {
+      const exp = JSON.parse(text);
+      // ensure required fields
+      if (!exp.samples || !Array.isArray(exp.samples)) { alert('Invalid JSON: no samples found.'); return; }
+      exp.id = exp.id || Date.now();
+      exp.name = exp.name || filename.replace('.json','');
+      exp.sampleCount = exp.samples.length;
+      const all = getExperiments();
+      if (all.find(e => e.id === exp.id)) { alert('This experiment is already imported.'); return; }
+      all.push(exp);
+      localStorage.setItem('experiments', JSON.stringify(all));
+      alert(`Imported "${exp.name}" with ${exp.sampleCount} samples.`);
+      switchTab('experiments');
+    } catch(e) { alert('Error reading JSON: ' + e.message); }
+  }
+
+  function importCSV(text, filename) {
+    try {
+      const lines = text.split('\n');
+      // parse metadata from comment lines
+      const meta = {};
+      lines.filter(l => l.startsWith('#')).forEach(l => {
+        const m = l.replace('#','').split(':');
+        if (m.length >= 2) meta[m[0].trim().toLowerCase()] = m.slice(1).join(':').trim();
+      });
+      // find header line
+      const headerIdx = lines.findIndex(l => l.startsWith('time_ms'));
+      if (headerIdx === -1) { alert('Invalid CSV: cannot find header row.'); return; }
+      const samples = [];
+      for (let i = headerIdx + 1; i < lines.length; i++) {
+        const p = lines[i].split(',').map(Number);
+        if (p.length < 7 || isNaN(p[0])) continue;
+        samples.push({ t: p[0], ax: p[1], ay: p[2], az: p[3], gx: p[4], gy: p[5], gz: p[6] });
+      }
+      if (samples.length === 0) { alert('No data rows found in CSV.'); return; }
+      const exp = {
+        id: Date.now(),
+        name: meta['experiment'] || filename.replace('.csv',''),
+        person: meta['person'] || 'Unknown',
+        strokeType: meta['stroke type'] || '—',
+        strokeSpeed: meta['stroke speed'] || '—',
+        grip: meta['phone grip'] || '—',
+        frequency: meta['frequency']?.replace(' Hz','') || '—',
+        device: meta['device'] || '—',
+        timestamp: meta['timestamp'] || new Date().toISOString(),
+        sampleCount: samples.length,
+        samples
+      };
+      const all = getExperiments();
+      all.push(exp);
+      localStorage.setItem('experiments', JSON.stringify(all));
+      alert(`Imported "${exp.name}" with ${samples.length} samples.`);
+      switchTab('experiments');
+    } catch(e) { alert('Error reading CSV: ' + e.message); }
   }
 
   initLiveChart();
