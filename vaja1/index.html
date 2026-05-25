@@ -137,7 +137,8 @@
     <div class="metric"><div class="metric-label">Gyr Z</div><div class="metric-value z" id="live-gz">0.000</div></div>
   </div>
 
-  <div class="chart-wrap"><canvas id="live-chart"></canvas></div>
+  <div class="chart-wrap"><canvas id="live-chart-acc"></canvas></div>
+  <div class="chart-wrap" style="margin-top:10px"><canvas id="live-chart-gyr"></canvas></div>
   <div class="sample-counter" id="sample-counter">0 samples recorded</div>
   <br>
   <button class="record-btn start" id="record-btn" onclick="toggleRecording()">Start Recording</button>
@@ -156,7 +157,9 @@
 
 <script>
   let recording = false, samples = [], motionHandler = null;
-  let liveChart = null, liveLabels = [], liveX = [], liveY = [], liveZ = [];
+  let liveChartAcc = null, liveChartGyr = null;
+  let liveLabels = [], liveX = [], liveY = [], liveZ = [];
+  let liveGX = [], liveGY = [], liveGZ = [];
   const MAX_LIVE = 80;
   let lastSampleTime = 0, permissionGranted = false;
 
@@ -169,19 +172,24 @@
   }
 
   function initLiveChart() {
-    const ctx = document.getElementById('live-chart').getContext('2d');
-    liveChart = new Chart(ctx, {
+    const chartOpts = (datasets) => ({
       type: 'line',
-      data: { labels: liveLabels, datasets: [
-        { label: 'X', data: liveX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
-        { label: 'Y', data: liveY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
-        { label: 'Z', data: liveZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
-      ]},
+      data: { labels: liveLabels, datasets },
       options: { animation: false, responsive: true, maintainAspectRatio: false,
         plugins: { legend: { labels: { color: '#666', font: { size: 11 }, boxWidth: 10 } } },
         scales: { x: { display: false }, y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1e1e1e' } } }
       }
     });
+    liveChartAcc = new Chart(document.getElementById('live-chart-acc').getContext('2d'), chartOpts([
+      { label: 'Acc X', data: liveX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'Acc Y', data: liveY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'Acc Z', data: liveZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
+    ]));
+    liveChartGyr = new Chart(document.getElementById('live-chart-gyr').getContext('2d'), chartOpts([
+      { label: 'Gyr X', data: liveGX, borderColor: '#00ff88', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'Gyr Y', data: liveGY, borderColor: '#0088ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'Gyr Z', data: liveGZ, borderColor: '#ff4488', borderWidth: 1.5, pointRadius: 0, tension: 0.3 }
+    ]));
   }
 
   async function requestPermission() {
@@ -224,9 +232,16 @@
       document.getElementById('live-gx').textContent = gx.toFixed(3);
       document.getElementById('live-gy').textContent = gy.toFixed(3);
       document.getElementById('live-gz').textContent = gz.toFixed(3);
-      liveLabels.push(''); liveX.push(ax); liveY.push(ay); liveZ.push(az);
-      if (liveLabels.length > MAX_LIVE) { liveLabels.shift(); liveX.shift(); liveY.shift(); liveZ.shift(); }
-      liveChart.update();
+      liveLabels.push('');
+      liveX.push(ax); liveY.push(ay); liveZ.push(az);
+      liveGX.push(gx); liveGY.push(gy); liveGZ.push(gz);
+      if (liveLabels.length > MAX_LIVE) {
+        liveLabels.shift();
+        liveX.shift(); liveY.shift(); liveZ.shift();
+        liveGX.shift(); liveGY.shift(); liveGZ.shift();
+      }
+      liveChartAcc.update();
+      liveChartGyr.update();
       if (recording) {
         samples.push({ t: now, ax, ay, az, gx, gy, gz });
         document.getElementById('sample-counter').textContent = `${samples.length} samples recorded`;
