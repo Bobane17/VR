@@ -394,55 +394,59 @@
 
   function mqttConnect() {
     const host = document.getElementById('mqtt-host').value.trim();
-    const port = parseInt(document.getElementById('mqtt-port').value.trim());
+    const port = document.getElementById('mqtt-port').value.trim();
+    const user = document.getElementById('mqtt-user').value.trim();
+    const pass = document.getElementById('mqtt-pass').value.trim();
     const clientId = 'tenisZajem_' + Math.random().toString(36).substr(2, 6);
 
-    if (mqttConnected) {
-      mqttClient.disconnect();
+    if (mqttConnected && mqttClient) {
+      mqttClient.end();
       return;
     }
 
-    mqttLog(`Connecting to ${host}:${port} …`, 'info');
+    const url = `wss://${host}:${port}/mqtt`;
+    mqttLog(`Connecting to ${url} …`, 'info');
     setMqttBadge('connecting…');
     document.getElementById('mqtt-connect-btn').textContent = 'Connecting…';
     document.getElementById('mqtt-connect-btn').disabled = true;
 
-    mqttClient = new Paho.MQTT.Client(host, port, '/mqtt', clientId);
+    mqttClient = mqtt.connect(url, {
+      clientId,
+      username: user,
+      password: pass,
+      clean: true,
+      reconnectPeriod: 0
+    });
 
-    mqttClient.onConnectionLost = function(resp) {
+    mqttClient.on('connect', function() {
+      mqttConnected = true;
+      setMqttBadge('connected');
+      mqttLog('Connected! Client ID: ' + clientId, 'ok');
+      const btn = document.getElementById('mqtt-connect-btn');
+      btn.textContent = 'Disconnect';
+      btn.disabled = false;
+      btn.className = 'mqtt-disconnect-btn';
+    });
+
+    mqttClient.on('error', function(err) {
+      mqttConnected = false;
+      setMqttBadge('error');
+      mqttLog('Error: ' + err.message, 'err');
+      const btn = document.getElementById('mqtt-connect-btn');
+      btn.textContent = 'Connect';
+      btn.disabled = false;
+      btn.className = 'mqtt-connect-btn';
+      mqttClient.end();
+    });
+
+    mqttClient.on('close', function() {
+      if (!mqttConnected) return;
       mqttConnected = false;
       setMqttBadge('disconnected');
+      mqttLog('Disconnected.', 'info');
       document.getElementById('mqtt-connect-btn').textContent = 'Connect';
       document.getElementById('mqtt-connect-btn').disabled = false;
       document.getElementById('mqtt-connect-btn').className = 'mqtt-connect-btn';
-      mqttLog('Connection lost: ' + resp.errorMessage, 'err');
-    };
-
-    const user = document.getElementById('mqtt-user').value.trim();
-    const pass = document.getElementById('mqtt-pass').value.trim();
-    mqttClient.connect({
-      useSSL: true,
-      userName: user,
-      password: pass,
-      timeout: 10,
-      onSuccess: function() {
-        mqttConnected = true;
-        setMqttBadge('connected');
-        mqttLog('Connected! Client ID: ' + clientId, 'ok');
-        const btn = document.getElementById('mqtt-connect-btn');
-        btn.textContent = 'Disconnect';
-        btn.disabled = false;
-        btn.className = 'mqtt-disconnect-btn';
-      },
-      onFailure: function(err) {
-        mqttConnected = false;
-        setMqttBadge('error');
-        mqttLog('Connection failed: ' + err.errorMessage, 'err');
-        const btn = document.getElementById('mqtt-connect-btn');
-        btn.textContent = 'Connect';
-        btn.disabled = false;
-        btn.className = 'mqtt-connect-btn';
-      }
     });
   }
 
