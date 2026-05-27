@@ -6,7 +6,7 @@
   <title>Tenis Zajem</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
   <style>
     :root {
       --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
@@ -340,9 +340,7 @@
           });
           const topic = document.getElementById('mqtt-topic').value.trim();
           try {
-            const msg = new Paho.MQTT.Message(payload);
-            msg.destinationName = topic;
-            mqttClient.send(msg);
+            mqttClient.publish(topic, payload);
           } catch(err) {
             mqttLog('Publish error: ' + err.message, 'err');
           }
@@ -409,7 +407,7 @@
     document.getElementById('mqtt-connect-btn').textContent = 'Connecting…';
     document.getElementById('mqtt-connect-btn').disabled = true;
 
-    mqttClient = new Paho.MQTT.Client(host, Number(port), '/mqtt', clientId);
+    mqttClient = new Paho.MQTT.Client(host, port, '/mqtt', clientId);
 
     mqttClient.onConnectionLost = function(resp) {
       mqttConnected = false;
