@@ -6,6 +6,7 @@
   <title>Tenis Zajem</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
   <style>
     :root {
       --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
@@ -63,6 +64,22 @@
     .meta-table td:first-child { color: var(--muted); width: 45%; }
     .notice { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
     .notice span { color: var(--accent); }
+
+    /* MQTT styles */
+    .mqtt-status-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .mqtt-status-label { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+    .mqtt-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .mqtt-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .mqtt-badge.connected { border-color: var(--accent); color: var(--accent); }
+    .mqtt-badge.connected .dot { background: var(--accent); }
+    .mqtt-badge.error { border-color: var(--danger); color: var(--danger); }
+    .mqtt-badge.error .dot { background: var(--danger); }
+    .mqtt-connect-btn { width: 100%; padding: 14px; border-radius: 10px; border: none; background: var(--accent); color: #000; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 16px; }
+    .mqtt-disconnect-btn { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 16px; }
+    .mqtt-log { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); height: 160px; overflow-y: auto; line-height: 1.8; }
+    .mqtt-log .log-ok { color: var(--accent); }
+    .mqtt-log .log-err { color: var(--danger); }
+    .mqtt-log .log-info { color: var(--accent2); }
   </style>
 </head>
 <body>
@@ -78,6 +95,7 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab('record')">Record</div>
   <div class="tab" onclick="switchTab('experiments')">Experiments</div>
+  <div class="tab" onclick="switchTab('mqtt')">MQTT</div>
 </div>
 
 <div class="page active" id="page-record">
@@ -149,6 +167,45 @@
   <div id="exp-detail" style="display:none;"></div>
 </div>
 
+<!-- MQTT tab -->
+<div class="page" id="page-mqtt">
+  <p class="section-title">Broker Settings</p>
+  <div class="form-group">
+    <label>Broker host</label>
+    <input type="text" id="mqtt-host" value="broker.emqx.io" />
+  </div>
+  <div class="form-group">
+    <label>WebSocket port</label>
+    <input type="text" id="mqtt-port" value="8083" />
+  </div>
+  <div class="form-group">
+    <label>Topic</label>
+    <input type="text" id="mqtt-topic" value="tenis/sensor" />
+  </div>
+  <div class="form-group">
+    <label>Publish every N samples</label>
+    <select id="mqtt-interval">
+      <option value="1">Every sample</option>
+      <option value="5" selected>Every 5 samples</option>
+      <option value="10">Every 10 samples</option>
+      <option value="20">Every 20 samples</option>
+    </select>
+  </div>
+
+  <div class="mqtt-status-row">
+    <span class="mqtt-status-label">Status</span>
+    <div class="mqtt-badge" id="mqtt-badge">
+      <div class="dot"></div>
+      <span id="mqtt-status-text">disconnected</span>
+    </div>
+  </div>
+
+  <button class="mqtt-connect-btn" id="mqtt-connect-btn" onclick="mqttConnect()">Connect</button>
+
+  <p class="section-title">Log</p>
+  <div class="mqtt-log" id="mqtt-log"><span class="log-info">— ready —</span></div>
+</div>
+
 <!-- floating import button -->
 <div style="position:fixed;bottom:20px;right:20px;z-index:200">
   <input type="file" id="import-file" accept=".json,.csv" style="display:none" onchange="importFile(this.files[0])">
@@ -156,13 +213,20 @@
 </div>
 
 <script>
+  // ── Sensor state ──────────────────────────────────────────────────────────
   let recording = false, samples = [], motionHandler = null;
   let liveChartAcc = null, liveChartGyr = null;
   let liveLabels = [], liveX = [], liveY = [], liveZ = [];
   let liveGX = [], liveGY = [], liveGZ = [];
   const MAX_LIVE = 80;
   let lastSampleTime = 0, permissionGranted = false;
+  let samplesSincePublish = 0;
 
+  // ── MQTT state ────────────────────────────────────────────────────────────
+  let mqttClient = null;
+  let mqttConnected = false;
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -171,6 +235,7 @@
     if (tab === 'experiments') renderExperiments();
   }
 
+  // ── Charts ────────────────────────────────────────────────────────────────
   function initLiveChart() {
     const chartOpts = (datasets) => ({
       type: 'line',
@@ -192,6 +257,7 @@
     ]));
   }
 
+  // ── Sensors ───────────────────────────────────────────────────────────────
   async function requestPermission() {
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       try {
@@ -226,12 +292,14 @@
       const gx = e.rotationRate?.alpha ?? 0;
       const gy = e.rotationRate?.beta ?? 0;
       const gz = e.rotationRate?.gamma ?? 0;
+
       document.getElementById('live-x').textContent = ax.toFixed(3);
       document.getElementById('live-y').textContent = ay.toFixed(3);
       document.getElementById('live-z').textContent = az.toFixed(3);
       document.getElementById('live-gx').textContent = gx.toFixed(3);
       document.getElementById('live-gy').textContent = gy.toFixed(3);
       document.getElementById('live-gz').textContent = gz.toFixed(3);
+
       liveLabels.push('');
       liveX.push(ax); liveY.push(ay); liveZ.push(az);
       liveGX.push(gx); liveGY.push(gy); liveGZ.push(gz);
@@ -242,36 +310,133 @@
       }
       liveChartAcc.update();
       liveChartGyr.update();
+
       if (recording) {
         samples.push({ t: now, ax, ay, az, gx, gy, gz });
         document.getElementById('sample-counter').textContent = `${samples.length} samples recorded`;
+
+        // MQTT publish
+        samplesSincePublish++;
+        const publishEvery = parseInt(document.getElementById('mqtt-interval').value);
+        if (mqttConnected && samplesSincePublish >= publishEvery) {
+          samplesSincePublish = 0;
+          const payload = JSON.stringify({
+            t: now,
+            acc: { x: parseFloat(ax.toFixed(4)), y: parseFloat(ay.toFixed(4)), z: parseFloat(az.toFixed(4)) },
+            gyr: { x: parseFloat(gx.toFixed(4)), y: parseFloat(gy.toFixed(4)), z: parseFloat(gz.toFixed(4)) },
+            meta: {
+              name: document.getElementById('exp-name').value.trim(),
+              stroke: document.getElementById('exp-speed').value,
+              speed: document.getElementById('exp-position').value
+            }
+          });
+          const topic = document.getElementById('mqtt-topic').value.trim();
+          try {
+            const msg = new Paho.MQTT.Message(payload);
+            msg.destinationName = topic;
+            mqttClient.send(msg);
+          } catch(err) {
+            mqttLog('Publish error: ' + err.message, 'err');
+          }
+        }
       }
     };
     window.addEventListener('devicemotion', motionHandler);
   }
 
+  // ── Recording ─────────────────────────────────────────────────────────────
   function toggleRecording() {
     if (!permissionGranted) { alert('Please request sensor permission first.'); return; }
     if (!recording) {
       const name = document.getElementById('exp-name').value.trim();
       if (!name) { alert('Please enter an experiment name.'); return; }
       samples = [];
+      samplesSincePublish = 0;
       recording = true;
       document.getElementById('record-btn').textContent = 'Stop Recording';
       document.getElementById('record-btn').className = 'record-btn stop';
       document.getElementById('status-pill').className = 'status-pill recording';
       document.getElementById('status-text').textContent = 'recording';
       document.getElementById('sample-counter').textContent = '0 samples recorded';
+      if (mqttConnected) mqttLog('Recording started — publishing to ' + document.getElementById('mqtt-topic').value.trim(), 'ok');
     } else {
       recording = false;
       document.getElementById('record-btn').textContent = 'Start Recording';
       document.getElementById('record-btn').className = 'record-btn start';
       document.getElementById('status-pill').className = 'status-pill';
       document.getElementById('status-text').textContent = 'idle';
+      if (mqttConnected) mqttLog('Recording stopped.', 'info');
       saveExperiment();
     }
   }
 
+  // ── MQTT ──────────────────────────────────────────────────────────────────
+  function mqttLog(msg, type) {
+    const log = document.getElementById('mqtt-log');
+    const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
+    const time = new Date().toLocaleTimeString();
+    log.innerHTML += `<br><span class="${cls}">[${time}] ${msg}</span>`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function setMqttBadge(state) {
+    const badge = document.getElementById('mqtt-badge');
+    const text = document.getElementById('mqtt-status-text');
+    badge.className = 'mqtt-badge' + (state === 'connected' ? ' connected' : state === 'error' ? ' error' : '');
+    text.textContent = state;
+  }
+
+  function mqttConnect() {
+    const host = document.getElementById('mqtt-host').value.trim();
+    const port = parseInt(document.getElementById('mqtt-port').value.trim());
+    const clientId = 'tenisZajem_' + Math.random().toString(36).substr(2, 6);
+
+    if (mqttConnected) {
+      mqttClient.disconnect();
+      return;
+    }
+
+    mqttLog(`Connecting to ${host}:${port} …`, 'info');
+    setMqttBadge('connecting…');
+    document.getElementById('mqtt-connect-btn').textContent = 'Connecting…';
+    document.getElementById('mqtt-connect-btn').disabled = true;
+
+    mqttClient = new Paho.MQTT.Client(host, port, '/mqtt', clientId);
+
+    mqttClient.onConnectionLost = function(resp) {
+      mqttConnected = false;
+      setMqttBadge('disconnected');
+      document.getElementById('mqtt-connect-btn').textContent = 'Connect';
+      document.getElementById('mqtt-connect-btn').disabled = false;
+      document.getElementById('mqtt-connect-btn').className = 'mqtt-connect-btn';
+      mqttLog('Connection lost: ' + resp.errorMessage, 'err');
+    };
+
+    mqttClient.connect({
+      useSSL: false,
+      timeout: 10,
+      onSuccess: function() {
+        mqttConnected = true;
+        setMqttBadge('connected');
+        mqttLog('Connected! Client ID: ' + clientId, 'ok');
+        const btn = document.getElementById('mqtt-connect-btn');
+        btn.textContent = 'Disconnect';
+        btn.disabled = false;
+        btn.className = 'mqtt-disconnect-btn';
+      },
+      onFailure: function(err) {
+        mqttConnected = false;
+        setMqttBadge('error');
+        mqttLog('Connection failed: ' + err.errorMessage, 'err');
+        const btn = document.getElementById('mqtt-connect-btn');
+        btn.textContent = 'Connect';
+        btn.disabled = false;
+        btn.className = 'mqtt-connect-btn';
+      }
+    });
+  }
+
+  // ── Experiments ───────────────────────────────────────────────────────────
   function saveExperiment() {
     if (samples.length === 0) return;
     const exp = {
@@ -399,11 +564,8 @@
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-      if (file.name.endsWith('.json')) {
-        importJSON(e.target.result, file.name);
-      } else if (file.name.endsWith('.csv')) {
-        importCSV(e.target.result, file.name);
-      }
+      if (file.name.endsWith('.json')) importJSON(e.target.result, file.name);
+      else if (file.name.endsWith('.csv')) importCSV(e.target.result, file.name);
     };
     reader.readAsText(file);
   }
@@ -411,7 +573,6 @@
   function importJSON(text, filename) {
     try {
       const exp = JSON.parse(text);
-      // ensure required fields
       if (!exp.samples || !Array.isArray(exp.samples)) { alert('Invalid JSON: no samples found.'); return; }
       exp.id = exp.id || Date.now();
       exp.name = exp.name || filename.replace('.json','');
@@ -428,13 +589,11 @@
   function importCSV(text, filename) {
     try {
       const lines = text.split('\n');
-      // parse metadata from comment lines
       const meta = {};
       lines.filter(l => l.startsWith('#')).forEach(l => {
         const m = l.replace('#','').split(':');
         if (m.length >= 2) meta[m[0].trim().toLowerCase()] = m.slice(1).join(':').trim();
       });
-      // find header line
       const headerIdx = lines.findIndex(l => l.startsWith('time_ms'));
       if (headerIdx === -1) { alert('Invalid CSV: cannot find header row.'); return; }
       const samples = [];
