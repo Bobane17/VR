@@ -340,7 +340,12 @@
           });
           const topic = document.getElementById('mqtt-topic').value.trim();
           try {
-            mqttClient.publish(topic, payload);
+            mqttClient.publish(topic + '/acc/x', String(parseFloat(ax.toFixed(4))));
+            mqttClient.publish(topic + '/acc/y', String(parseFloat(ay.toFixed(4))));
+            mqttClient.publish(topic + '/acc/z', String(parseFloat(az.toFixed(4))));
+            mqttClient.publish(topic + '/gyr/x', String(parseFloat(gx.toFixed(4))));
+            mqttClient.publish(topic + '/gyr/y', String(parseFloat(gy.toFixed(4))));
+            mqttClient.publish(topic + '/gyr/z', String(parseFloat(gz.toFixed(4))));
           } catch(err) {
             mqttLog('Publish error: ' + err.message, 'err');
           }
