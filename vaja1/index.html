@@ -172,11 +172,19 @@
   <p class="section-title">Broker Settings</p>
   <div class="form-group">
     <label>Broker host</label>
-    <input type="text" id="mqtt-host" value="broker.emqx.io" />
+    <input type="text" id="mqtt-host" value="a9889c3706fc481399aa2e9987e79389.s1.eu.hivemq.cloud" />
   </div>
   <div class="form-group">
     <label>WebSocket port</label>
-    <input type="text" id="mqtt-port" value="8083" />
+    <input type="text" id="mqtt-port" value="8884" />
+  </div>
+  <div class="form-group">
+    <label>Username</label>
+    <input type="text" id="mqtt-user" value="admin" />
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" id="mqtt-pass" value="Admin12345" />
   </div>
   <div class="form-group">
     <label>Topic</label>
@@ -412,8 +420,12 @@
       mqttLog('Connection lost: ' + resp.errorMessage, 'err');
     };
 
+    const user = document.getElementById('mqtt-user').value.trim();
+    const pass = document.getElementById('mqtt-pass').value.trim();
     mqttClient.connect({
-      useSSL: false,
+      useSSL: true,
+      userName: user,
+      password: pass,
       timeout: 10,
       onSuccess: function() {
         mqttConnected = true;
