@@ -409,7 +409,7 @@
     document.getElementById('mqtt-connect-btn').textContent = 'Connecting…';
     document.getElementById('mqtt-connect-btn').disabled = true;
 
-    mqttClient = new Paho.MQTT.Client(host, port, '/mqtt', clientId);
+    mqttClient = new Paho.MQTT.Client(host, Number(port), '/mqtt', clientId);
 
     mqttClient.onConnectionLost = function(resp) {
       mqttConnected = false;
