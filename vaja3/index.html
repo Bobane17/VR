@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <h2>FocusRoom – Phone Detector</h2>
+  <p id="status">Connecting...</p>
+  <p id="accel"></p>
+
+<script>
+  const TOPIC = "focusroom/phone/alert";
+  const THRESHOLD = 12; // m/s² - prilagodi po potrebi
+  let alertSent = false;
+  let lastAlertTime = 0;
+
+  // MQTT preko WebSocket
+  const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+  client.on("connect", () => {
+    document.getElementById("status").textContent = "MQTT connected ✅";
+  });
+
+  // Pospeškometer
+  window.addEventListener("devicemotion", (event) => {
+    const acc = event.accelerationIncludingGravity;
+    const total = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+
+    document.getElementById("accel").textContent = `Acceleration: ${total.toFixed(2)} m/s²`;
+
+    const now = Date.now();
+    // Pošlji alert če preko threshold in ni bil poslan zadnjih 5s
+    if (total > THRESHOLD && (now - lastAlertTime) > 5000) {
+      client.publish(TOPIC, "PHONE_PICKED_UP");
+      lastAlertTime = now;
+      document.getElementById("status").textContent = "⚠️ Alert poslan!";
+      setTimeout(() => {
+        document.getElementById("status").textContent = "MQTT connected ✅";
+      }, 2000);
+    }
+  });
+</script>
+</body>
+</html>
